@@ -2,43 +2,85 @@ import tensorflow as tf
 import tensorflow_recommenders as tfrs
 import pandas as pd
 from trainers.model_utils import getOptimizer
+import time
 
-class twoTowerModel(tfrs.Model):
-	def __init__(self, embedDim, nbrItem, nbrUser, itemId, batchSize, loss):
+class twoTowerModel(tf.keras.Model):
+	def __init__(self, embedDim, nbrItem, nbrUser):
 		super().__init__(self)
 		self.embedDim = embedDim
 		self.nbrItem = nbrItem
 		self.nbrUser = nbrUser
-		self.batchSize = batchSize
-		self.data = data
-		#print(data)
-		#print(nbrUser)
+		#print(nbrItem)
 		
-		self.userTower = tf.keras.Sequential([tf.keras.layers.experimental.preprocessing.IntegerLookup(nbrUser), tf.keras.layers.Embedding(nbrUser, embedDim)])
-		self.itemTower = tf.keras.Sequential([tf.keras.layers.experimental.preprocessing.IntegerLookup(nbrItem), tf.keras.layers.Embedding(nbrItem, embedDim)])
+		self.userTowerIn = tf.keras.layers.experimental.preprocessing.StringLookup(nbrUser)
+		self.userTowerOut = tf.keras.layers.Embedding(nbrUser, embedDim)
+		self.itemTowerIn = tf.keras.layers.experimental.preprocessing.StringLookup(nbrItem)
+		self.itemTowerOut = tf.keras.layers.Embedding(nbrItem, embedDim)
 		
-		self.task = tfrs.tasks.Retrieval(
-			loss = loss,
-			metrics = tfrs.metrics.FactorizedTopK(candidates = itemId.batch(batchSize).map(self.itemTower), )
-		)
+		self.userTower = tf.keras.Sequential([self.userTowerIn, self.userTowerOut])
+		self.itemTower = tf.keras.Sequential([self.itemTowerIn, self.itemTowerOut])
+		
+		self.outputLayer = tf.keras.Sequential(tf.keras.layers.Dense(1, input_shape = (2*embedDim,)))
 	
-	def compute_loss(self, data, training = False):
-		print(data)
-		usersCaracteristics = self.userTower(data["user_id"])
-		itemsCaracteristics = self.itemTower(data["movie_id"])
-		print(itemsCaracteristics)
+	def call(self, info, training = False):
+		"""userInput = self.userTowerIn(info["user_id"])
+		usersCaracteristics = self.userTowerOut(userInput)
+		itemInput = self.itemTowerIn(info["movie_id"])
+		itemCaracteristics = self.itemTowerOut(itemInput)"""
+		usersCaracteristics = self.userTower(info["user_id"])
+		itemCaracteristics = self.itemTower(info["movie_id"])
+		return self.outputLayer(tf.concat([usersCaracteristics, itemCaracteristics], -1))
+	
+	def train_step(self, info):
+		with tf.GradientTape() as tape:
+			pred = self(info, training = True)
+			loss = self.compiled_loss(pred, info["rating"])
 		
-		return self.task(usersCaracteristics, itemsCaracteristics)
+		#print(tape.watched_variables)
+		gradients = tape.gradient(loss, self.trainable_variables)
+		self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
+		#metrics = {metric.name: metric.result() for metric in self.metrics}
+		return {"loss":loss}
+	
+	def test_step(self, info):
+		pred = self(info)
+		loss = self.compiled_loss(pred, info["rating"])
+		return {"loss":loss}
 	
 
-def movieLensData():
+def movieLensData(ratedVal, unratedVal):
 	ratings_cols = ['user_id', 'movie_id', 'rating', 'unix_timestamp']
 	ratings = pd.read_csv('data/ml-100k/u.data', sep='\t', names=ratings_cols, encoding='latin-1')
+	ratings = ratings.filter(items=["movie_id", "user_id", "rating"])
 	
-	nbrMovie = len(pd.unique(ratings["movie_id"]))
-	nbrUser = len(pd.unique(ratings["user_id"]))
 	
-	return {"ratings":ratings.filter(items=["movie_id", "user_id"]), "nbrUser":nbrUser, "nbrMovie":nbrMovie}
+	ratings["movie_id"] = ratings["movie_id"].apply(lambda x : str(x))
+	ratings["user_id"] = ratings["user_id"].apply(lambda x : str(x))
+	ratings["rating"] = ratings["rating"].apply(lambda x: float(ratedVal))
+	moviesId = pd.unique(ratings["movie_id"])
+	nbrMovie = len(moviesId)
+	usersId = pd.unique(ratings["user_id"])
+	nbrUser = len(usersId)
+	
+	realRat = set()
+	for i in range(len(ratings["movie_id"])):
+		realRat.add((ratings["movie_id"][i], ratings["user_id"][i]))
+	
+	unrated = []
+	i = 0
+	for user in usersId:
+		timer = time.time()
+		i += 1
+		
+		for movie in moviesId:
+			if (user, movie) in realRat:
+				unrated.append([user, movie, float(unratedVal)])
+				
+	
+	unrated = pd.DataFrame(unrated, columns=["user_id", "movie_id", "rating"])
+	ratings = ratings.append(unrated, ignore_index=True)
+	
+	return {"ratings":ratings, "nbrUser":nbrUser, "nbrMovie":nbrMovie, "realRat":realRat}
 
 def splitTrainTest(data, ratio):
 	dataSize = len(data)
@@ -54,20 +96,20 @@ def splitTrainTest(data, ratio):
 
 
 if __name__ == "__main__":
-	data = movieLensData()
+	data = movieLensData(1,2)
 	#print(dict(data["ratings"]))
 	ratings = tf.data.Dataset.from_tensor_slices(dict(data["ratings"]))
-	itemsId = pd.unique(data["ratings"]["movie_id"])
-	#print(itemsId)
-	itemsId = tf.data.Dataset.from_tensor_slices(itemsId)
-	#print(ratings)
 	trainSet, testSet = splitTrainTest(ratings, 0.8)
-	model = twoTowerModel(32, data["nbrMovie"], data["nbrUser"], itemsId, 128, None)#tf.keras.losses.MeanSquaredError())
-	model.compile(optimizer = getOptimizer("SGD", 0.1))
-	testSetCached = trainSet.batch(8192).cache()
-	model.fit(testSetCached, epochs = 5)
-	print(model.evaluate(testSetCached, return_dict=True))
-	print(model.evaluate(testSet.batch(4096).cache(), return_dict=True))
+	model = twoTowerModel(32, data["nbrMovie"], data["nbrUser"])
+	model.compile(optimizer = getOptimizer("Adam", 0.002), loss = "MSE")
+	
+	testSetCached = trainSet.batch(8000).cache()
+	
+	model.fit(testSetCached, epochs = 10)
+	print("test")
+	model.evaluate(testSet.batch(4000).cache(), return_dict=True)
+	
+	
 	
 	
 	

@@ -1,5 +1,4 @@
 import tensorflow as tf
-import tensorflow_recommenders as tfrs
 import pandas as pd
 from trainers.model_utils import getOptimizer
 import time

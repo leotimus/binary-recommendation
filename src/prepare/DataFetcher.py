@@ -5,7 +5,7 @@ logger = logging.getLogger("DataFetcher")
 logging.basicConfig()
 
 def downloadData(url='https://drive.google.com/uc?id=1Xjse6RzUI34yD1TB7HkTYRhp_uIrBfjf',
-                 destDir="prepare"):
+                 destDir="data"):
   # prepare destination
   dataFile = 'lastfm_play.csv'
   dest = Path(destDir)

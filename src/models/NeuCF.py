@@ -20,7 +20,7 @@ from tensorflow.keras.models import Model
 
 def getData(rows=200000):
   downloadData()
-  df = pd.read_csv('prepare/lastfm_play.csv', nrows=rows)
+  df = pd.read_csv('data/lastfm_play.csv', nrows=rows)
   return df
 
 
@@ -70,7 +70,7 @@ def bootstrapDataset(df, negRatio=3., batchSize=128, shuffle=True):
 
 
 def main():
-  checkpointPath = "prepare/checkpoints/NeuCF"
+  checkpointPath = "data/checkpoints/NeuCF"
   # checkpointDir = os.path.dirname(checkpointPath)
   isTraining = False
 

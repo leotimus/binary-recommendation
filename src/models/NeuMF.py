@@ -13,12 +13,14 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import BinaryCrossentropy
 from tensorflow.keras.metrics import BinaryAccuracy
 
-from tensorflow.keras.layers import Input, Concatenate
-from tensorflow.keras.layers import Dense, Embedding
+from tensorflow.keras.layers import Input, Dot
+from tensorflow.keras.layers import Dense, Embedding, Dropout
 from tensorflow.keras.models import Model
+from tensorflow.keras.utils import model_to_dot
+from IPython.display import SVG
 
 
-def getData(rows=200000):
+def getData(rows=500000):
   downloadData()
   df = pd.read_csv('data/lastfm_play.csv', nrows=rows)
   return df
@@ -31,16 +33,18 @@ def buildNeuralCollaborativeFilteringModel(numUser, numItem, numFactor):
   userEmbedding = Embedding(numUser, numFactor)(userId)
   itemEmbedding = Embedding(numItem, numFactor)(itemId)
 
-  concatEmbedding = Concatenate()([userEmbedding, itemEmbedding])
+  concatEmbedding = Dot(axes=1)([userEmbedding, itemEmbedding])
 
-  hidden1 = Dense(numFactor, activation='relu')(concatEmbedding)
+  dropout = Dropout(0.2)(concatEmbedding)
+  hidden1 = Dense(numFactor, activation='relu')(dropout)
   hidden2 = Dense(numFactor // 2, activation='relu')(hidden1)
   hidden3 = Dense(numFactor // 4, activation='relu')(hidden2)
 
-  output = Dense(1, activation='sigmoid')(hidden3)
+  # output = Dense(1, activation='sigmoid')(hidden3)
+  output = Dense(1, activation='relu')(hidden3)
 
   inputs = [userId, itemId]
-  model = Model(inputs, output, name='NCF')
+  model = Model(inputs, output, name='NeuMF')
 
   model.compile(Adam(1e-3), loss=BinaryCrossentropy(), metrics=[BinaryAccuracy()])
 
@@ -70,11 +74,10 @@ def bootstrapDataset(df, negRatio=3., batchSize=128, shuffle=True):
 
 
 def main():
-  checkpointPath = "data/checkpoints/NeuCF"
-  # checkpointDir = os.path.dirname(checkpointPath)
-  isTraining = False
+  checkpointPath = "data/checkpoints/NeuMF/cp"
+  isTraining = True
 
-  playDf = getData(1000000)
+  playDf = getData(100000)
 
   numUser = playDf.user_id.max() + 1
   numItem = playDf.artist_id.max() + 1
@@ -83,6 +86,8 @@ def main():
   batchSize = 1024 * 16
 
   model = buildNeuralCollaborativeFilteringModel(numUser, numItem, num_factor)
+  # SVG(model_to_dot(model, show_shapes=True).create(prog='dot', format='svg')) #TODO print the model structure
+  model.summary()
 
   train, test = train_test_split(playDf, test_size=0.2)
   train, val = train_test_split(train, test_size=0.2)

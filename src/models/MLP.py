@@ -16,7 +16,6 @@ from tensorflow.keras.metrics import BinaryAccuracy
 from tensorflow.keras.layers import Input, Concatenate
 from tensorflow.keras.layers import Dense, Embedding, Dropout, BatchNormalization, Dot
 from tensorflow.keras.models import Model
-from tensorflow.keras.utils import model_to_dot
 from IPython.display import SVG
 
 

@@ -13,12 +13,11 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import BinaryCrossentropy
 from tensorflow.keras.metrics import BinaryAccuracy
 
-from tensorflow.keras.layers import Input, Flatten, Concatenate
-from tensorflow.keras.layers import Embedding
+from tensorflow.keras.layers import Input, Dot, Flatten, Embedding
 from tensorflow.keras.models import Model
 
 
-def getData(rows=200000):
+def getData(rows=500000):
   downloadData()
   df = pd.read_csv('data/lastfm_play.csv', nrows=rows)
   return df
@@ -28,16 +27,17 @@ def buildNeuralCollaborativeFilteringModel(numUser, numItem, numFactor):
 
   userId = Input(shape=(), name='user')
   userEmbedding = Embedding(numUser, numFactor)(userId)
-  # userVec = Flatten(name='user-flatten')(userEmbedding)
+  userVec = Flatten(name='user-flatten')(userEmbedding)
 
   itemId = Input(shape=(), name='item')
   itemEmbedding = Embedding(numItem, numFactor)(itemId)
-  # itemVec = Flatten(name='item-flatten')(itemEmbedding)
+  itemVec = Flatten(name='item-flatten')(itemEmbedding)
 
-  concatEmbedding = Concatenate()([userEmbedding, itemEmbedding])
+  pred = tf.multiply(userVec, itemVec)
+  # concatEmbedding = Dot(axes=1)([userVec, itemVec])
 
   inputs = [userId, itemId]
-  model = Model(inputs, concatEmbedding, name='MF')
+  model = Model(inputs, pred, name='MF')
 
   model.compile(Adam(1e-3), loss=BinaryCrossentropy(), metrics=[BinaryAccuracy()])
 

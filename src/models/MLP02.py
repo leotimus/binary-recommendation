@@ -1,50 +1,65 @@
-import numpy as np
+# import numpy as np
+# from tqdm import tqdm
 import pandas as pd
-from tqdm import tqdm
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
-from src.prepare.DataFetcher import downloadData
-
-tqdm.pandas()
-np.set_printoptions(5, )
-assert int(tf.__version__[0]) >= 2, "tensorflow 2.x should be installed"
+import sys
 
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import BinaryCrossentropy
-from tensorflow.keras.metrics import BinaryAccuracy, TrueNegatives, TruePositives, MSE, MAE
+from tensorflow.keras.metrics import BinaryAccuracy
 
-from tensorflow.keras.layers import Input, Dot
-from tensorflow.keras.layers import Dense, Embedding, Dropout
+from tensorflow.keras.layers import Input, Concatenate
+from tensorflow.keras.layers import Dense, Embedding, Dropout, BatchNormalization, Dot
 from tensorflow.keras.models import Model
 from tensorflow.keras.utils import model_to_dot
-from IPython.display import SVG
+
+USER_FEATURE = 'CUSTOMER_ID'
+ITEM_FEATURE = 'PRODUCT_ID'
 
 
-def getData(rows=500000):
-  downloadData()
-  df = pd.read_csv('data/lastfm_play.csv', nrows=rows)
+def getData(rows=100000):
+  dataPath = sys.argv[1] if len(sys.argv) >= 2 else ''
+  df = pd.read_csv(dataPath, nrows=rows)
+  df = df.drop(['MATERIAL', 'QUANTITY'], axis=1);
   return df
 
 
 def buildNeuralCollaborativeFilteringModel(numUser, numItem, numFactor):
+
   userId = Input(shape=(), name='user')
   itemId = Input(shape=(), name='item')
 
-  userEmbedding = Embedding(numUser, numFactor)(userId)
-  itemEmbedding = Embedding(numItem, numFactor)(itemId)
+  # MLP Embeddings
+  userMLPEmbedding = Embedding(numUser, numFactor)(userId)
+  itemMLPEmbedding = Embedding(numItem, numFactor)(itemId)
 
-  concatEmbedding = Dot(axes=1)([userEmbedding, itemEmbedding])
+  # MF Embeddings
+  userMFEmbedding = Embedding(numUser, numFactor)(userId)
+  itemMFEmbedding = Embedding(numItem, numFactor)(itemId)
 
+  # MLP Layers
+  concatEmbedding = Concatenate()([userMLPEmbedding, itemMLPEmbedding])
   dropout = Dropout(0.2)(concatEmbedding)
-  hidden1 = Dense(numFactor, activation='relu')(dropout)
-  hidden2 = Dense(numFactor // 2, activation='relu')(hidden1)
-  hidden3 = Dense(numFactor // 4, activation='relu')(hidden2)
 
-  # output = Dense(1, activation='sigmoid')(hidden3)
-  output = Dense(1, activation='relu')(hidden3)
+  hidden1 = Dense(numFactor, activation='relu')(dropout)
+  hidden1BN = BatchNormalization(name='bn1')(hidden1)
+  dropout1 = Dropout(0.2)(hidden1BN)
+
+  hidden2 = Dense(numFactor // 2, activation='relu')(dropout1)
+  hidden2BN = BatchNormalization(name='bn2')(hidden2)
+  dropout2 = Dropout(0.2)(hidden2BN)
+
+  # Prediction from both layers
+  hidden3MLP = Dense(numFactor // 4, activation='relu')(dropout2)
+  predMF = Dot(axes=1)([userMFEmbedding, itemMFEmbedding])
+  combine = Concatenate()([hidden3MLP, predMF])
+
+  # Final prediction
+  output = Dense(1, activation='sigmoid')(combine) #activation='sigmoid'
 
   inputs = [userId, itemId]
-  model = Model(inputs, output, name='NeuMF')
+  model = Model(inputs, output, name='MLP')
 
   model.compile(Adam(1e-3), loss=BinaryCrossentropy(), metrics=[BinaryAccuracy()])
 
@@ -52,17 +67,17 @@ def buildNeuralCollaborativeFilteringModel(numUser, numItem, numFactor):
 
 
 def bootstrapDataset(df, negRatio=3., batchSize=128, shuffle=True):
-  posDf = df[['user_id', 'artist_id']].copy()
-  negDf = df[['user_id', 'artist_id']].sample(frac=negRatio, replace=True).copy()
-  negDf.artist_id = negDf.artist_id.sample(frac=1.).values
+  posDf = df[[USER_FEATURE, ITEM_FEATURE]].copy()
+  negDf = df[[USER_FEATURE, ITEM_FEATURE]].sample(frac=negRatio, replace=True).copy()
+  negDf.PRODUCT_ID = negDf.PRODUCT_ID.sample(frac=1.).values
 
   posDf['label'] = 1.
   negDf['label'] = 0.
   mergeDf = pd.concat([posDf, negDf]).sample(frac=1.)
 
   X = {
-    "user": mergeDf['user_id'].values,
-    "item": mergeDf['artist_id'].values
+    "user": mergeDf[USER_FEATURE].values,
+    "item": mergeDf[ITEM_FEATURE].values
   }
   Y = mergeDf.label.values
 
@@ -74,22 +89,26 @@ def bootstrapDataset(df, negRatio=3., batchSize=128, shuffle=True):
 
 
 def main():
-  checkpointPath = "data/checkpoints/NeuMF/cp"
+  checkpointPath = "data/checkpoints/MLP02/cp"
   isTraining = True
 
-  playDf = getData(100000)
+  transactionDf = getData(1000000)
 
-  numUser = playDf.user_id.max() + 1
-  numItem = playDf.artist_id.max() + 1
+  numUser = transactionDf.CUSTOMER_ID.max() + 1
+  numItem = transactionDf.PRODUCT_ID.max() + 1
   num_factor = 32
   epochs = 10
   batchSize = 1024 * 16
 
   model = buildNeuralCollaborativeFilteringModel(numUser, numItem, num_factor)
-  # SVG(model_to_dot(model, show_shapes=True).create(prog='dot', format='svg')) #TODO print the model structure
+  try:
+    model_to_dot(model, show_shapes=True).write(path='export/model.png', prog='dot', format='png')
+  except:
+    print('Could not plot model in dot format:', sys.exc_info()[0])
+
   model.summary()
 
-  train, test = train_test_split(playDf, test_size=0.2)
+  train, test = train_test_split(transactionDf, test_size=0.2)
   train, val = train_test_split(train, test_size=0.2)
   print(len(train), 'train examples')
   print(len(val), 'validation examples')
@@ -104,7 +123,9 @@ def main():
 
     trainDataset = bootstrapDataset(train, epochs, batchSize)
     valDataset = bootstrapDataset(val, epochs, batchSize, False)
-    model.fit(trainDataset, validation_data=valDataset, epochs=epochs, callbacks=[checkpointCallBack])
+    model.fit(trainDataset, validation_data=valDataset,
+                            epochs=epochs,
+                            callbacks=[checkpointCallBack])
 
     print("Evaluating trained model...")
     loss, accuracy = model.evaluate(testDataset)

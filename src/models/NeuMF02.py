@@ -14,8 +14,10 @@ from tensorflow.keras.layers import Dense, Embedding, Dropout, BatchNormalizatio
 from tensorflow.keras.models import Model
 from tensorflow.keras.utils import model_to_dot
 
+MODEL_TO_DOT_PNG = 'export/model.png'
 USER_FEATURE = 'CUSTOMER_ID'
 ITEM_FEATURE = 'PRODUCT_ID'
+CP_PATH = 'data/checkpoints/NeuMF02/cp'
 
 
 def getData(rows=100000):
@@ -89,7 +91,6 @@ def bootstrapDataset(df, negRatio=3., batchSize=128, shuffle=True):
 
 
 def main():
-  checkpointPath = "data/checkpoints/MLP02/cp"
   isTraining = True
 
   transactionDf = getData(1000000)
@@ -102,14 +103,14 @@ def main():
 
   model = buildNeuralCollaborativeFilteringModel(numUser, numItem, num_factor)
   try:
-    model_to_dot(model, show_shapes=True).write(path='export/model.png', prog='dot', format='png')
+    model_to_dot(model, show_shapes=True).write(path=MODEL_TO_DOT_PNG, prog='dot', format='png')
   except:
     print('Could not plot model in dot format:', sys.exc_info()[0])
 
   model.summary()
 
   train, test = train_test_split(transactionDf, test_size=0.2)
-  train, val = train_test_split(train, test_size=0.2)
+  trainSubset, val = train_test_split(train, test_size=0.2)
   print(len(train), 'train examples')
   print(len(val), 'validation examples')
   print(len(test), 'test examples')
@@ -117,7 +118,7 @@ def main():
   testDataset = bootstrapDataset(test, epochs, batchSize, False)
   if isTraining:
     # Create a callback that saves the model's weights
-    checkpointCallBack = tf.keras.callbacks.ModelCheckpoint(filepath=checkpointPath,
+    checkpointCallBack = tf.keras.callbacks.ModelCheckpoint(filepath=CP_PATH,
                                                             save_weights_only=True,
                                                             verbose=1)
 
@@ -133,7 +134,7 @@ def main():
     print("Predict a sample:")
 
   else:
-    model.load_weights(checkpointPath)
+    model.load_weights(CP_PATH)
 
     print("Predict a sample:")
     predictions = model.predict(testDataset) #TODO give prediction to one entity only?

@@ -85,7 +85,7 @@ if __name__ == "__main__":
 	
 	#testSetCached = trainSet.batch(8000).cache()
 	testSetCached = trainSet.batch(8000)
-	tf.keras.utils.plot_model(model, expand_nested = True)
+	#tf.keras.utils.plot_model(model, expand_nested = True)
 	model.fit(testSetCached, epochs = 10)
 	print("test")
 	#model.evaluate(testSet.batch(4000).cache(), return_dict=True)

@@ -39,7 +39,7 @@ def movieLensData(ratedVal, unratedVal, zeroProb):
 
 def gfData():
 	cols = ['CUSTOMER_ID', 'MATERIAL', 'is_real']
-	with smbc.open_file(getAAUfilename(r"CleanDatasets\no_0s\binary_MC_no0s_populated1000.csv"), mode="r", username=input("username: "), password=getpass()) as f
+	with smbc.open_file(getAAUfilename(r"CleanDatasets\no_0s\binary_MC_no0s_populated1000.csv"), mode="r", username=input("username: "), password=getpass()) as f:
 		data = pd.read_csv(, names = cols, dtype = {"MATERIAL":str, "CUSTOMER_ID": str})
 	data.drop(data.index[:1], inplace=True)
 	data["is_real"] = data["is_real"].apply(lambda x: float(x))

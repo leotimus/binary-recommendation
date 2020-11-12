@@ -22,7 +22,8 @@ CP_PATH = 'checkpoints/NeuMF02/cp'
 
 def getData(rows=100000):
   dataPath = sys.argv[1] if len(sys.argv) >= 2 else ''
-  df = pd.read_csv(dataPath, nrows=rows)
+  nrows = int(sys.argv[2]) if len(sys.argv) >= 3 else rows
+  df = pd.read_csv(dataPath, nrows=nrows)
   df = df.drop(['MATERIAL', 'QUANTITY'], axis=1);
   return df
 

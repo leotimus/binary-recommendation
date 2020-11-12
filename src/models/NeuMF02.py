@@ -17,7 +17,7 @@ from tensorflow.keras.utils import model_to_dot
 MODEL_TO_DOT_PNG = 'export/model.png'
 USER_FEATURE = 'CUSTOMER_ID'
 ITEM_FEATURE = 'PRODUCT_ID'
-CP_PATH = 'data/checkpoints/NeuMF02/cp'
+CP_PATH = 'checkpoints/NeuMF02/cp'
 
 
 def getData(rows=100000):
@@ -93,7 +93,7 @@ def bootstrapDataset(df, negRatio=3., batchSize=128, shuffle=True):
 def main():
   isTraining = True
 
-  transactionDf = getData(1000000)
+  transactionDf = getData(500000)
 
   numUser = transactionDf.CUSTOMER_ID.max() + 1
   numItem = transactionDf.PRODUCT_ID.max() + 1
@@ -124,12 +124,12 @@ def main():
 
     trainDataset = bootstrapDataset(train, epochs, batchSize)
     valDataset = bootstrapDataset(val, epochs, batchSize, False)
-    model.fit(trainDataset, validation_data=valDataset,
+    model.fit(trainDataset, validation_data=testDataset,
                             epochs=epochs,
                             callbacks=[checkpointCallBack])
 
     print("Evaluating trained model...")
-    loss, accuracy = model.evaluate(testDataset)
+    loss, accuracy = model.evaluate(valDataset)
     print("Accuracy", accuracy)
     print("Predict a sample:")
 

@@ -72,14 +72,14 @@ def splitTrainTest(data, ratio):
 
 
 if __name__ == "__main__":
-	data = movieLensData(1,0,0.1)
-	#data = gfData()
+	#data = movieLensData(1,0,0.1)
+	data = gfData()
 	#print(dict(data["ratings"]))
 	data["ratings"] = tf.data.Dataset.from_tensor_slices(dict(data["ratings"]))
 	ratings = data["ratings"]
 	trainSet, testSet = splitTrainTest(ratings, 0.8)
-	model = twoTowerModel(32, data["nbrMovie"], data["nbrUser"], "user_id", "movie_id", "rating", data["usersId"], data["moviesId"])
-	#model = twoTowerModel(32, data["nbrMaterial"], data["nbrUser"], "CUSTOMER_ID", "MATERIAL", "is_real", data["usersId"], data["materialsId"])
+	#model = twoTowerModel(32, data["nbrMovie"], data["nbrUser"], "user_id", "movie_id", "rating", data["usersId"], data["moviesId"])
+	model = twoTowerModel(32, data["nbrMaterial"], data["nbrUser"], "CUSTOMER_ID", "MATERIAL", "is_real", data["usersId"], data["materialsId"])
 	threshold = 0.5
 	model.compile(optimizer = getOptimizer("Adam",learningRate = 0.01), loss = "MSE", metrics=["MAE","MSE",tf.keras.metrics.BinaryAccuracy(threshold = threshold), tf.keras.metrics.TrueNegatives(threshold), tf.keras.metrics.TruePositives(threshold), tf.keras.metrics.FalseNegatives(threshold), tf.keras.metrics.FalsePositives(threshold)])
 	

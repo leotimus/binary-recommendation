@@ -83,13 +83,13 @@ if __name__ == "__main__":
 	threshold = 0.5
 	model.compile(optimizer = getOptimizer("Adam",learningRate = 0.01), loss = "MSE", metrics=["MAE","MSE",tf.keras.metrics.BinaryAccuracy(threshold = threshold), tf.keras.metrics.TrueNegatives(threshold), tf.keras.metrics.TruePositives(threshold), tf.keras.metrics.FalseNegatives(threshold), tf.keras.metrics.FalsePositives(threshold)])
 	
-	#testSetCached = trainSet.batch(8000).cache()
-	testSetCached = trainSet.batch(80000)
+	testSetCached = trainSet.batch(80000).cache()
+	#testSetCached = trainSet.batch(80000)
 	#tf.keras.utils.plot_model(model, expand_nested = True)
 	model.fit(testSetCached, epochs = 10)
 	print("test")
-	#model.evaluate(testSet.batch(4000).cache(), return_dict=True)
-	model.evaluate(testSet.batch(40000), return_dict=True)
+	model.evaluate(testSet.batch(40000).cache(), return_dict=True)
+	#model.evaluate(testSet.batch(40000), return_dict=True)
 	
 	
 	

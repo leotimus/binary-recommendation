@@ -17,13 +17,13 @@ print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('
 
 print ('Loading dataset...')
 
-dataset = pd.read_csv('//cs.aau.dk/Fileshares/IT703e20/CleanDatasets/binary_cleaned_incl_customers.csv', header=0, names=['index', 'customer_id', 'material_id', 'is_real'])
-#dataset = pd.read_csv('D:/ML/dataset/binary_cleaned_incl_customers.csv', header=0, names=['index', 'customer_id', 'material_id', 'is_real'])
+#dataset = pd.read_csv('//cs.aau.dk/Fileshares/IT703e20/CleanDatasets/binary_cleaned_incl_customers.csv', header=0, names=['index', 'customer_id', 'material_id', 'is_real'])
+dataset = pd.read_csv('D:/ML/dataset/binary_cleaned_incl_customers.csv', header=0, names=['index', 'customer_id', 'material_id', 'is_real'])
 
 print ('Dataset loaded')
 
-num_users = len(dataset.customer_id.unique())
-num_movies = len(dataset.material_id.unique())
+num_customers = len(dataset.customer_id.unique())
+num_materials = len(dataset.material_id.unique())
 
 #shuffle here
 dataset = shuffle(dataset)
@@ -35,25 +35,25 @@ train, test = train_test_split(dataset, test_size=0.2)
 print ("Building model")
 latent_dim = 10
 
-movie_input = Input(shape=[1],name='movie-input')
-user_input = Input(shape=[1], name='user-input')
+material_input = Input(shape=[1],name='material-input')
+customer_input = Input(shape=[1], name='customer-input')
 
 # MLP Embeddings
-movie_embedding_mlp = Embedding(num_movies + 1, latent_dim, name='movie-embedding-mlp')(movie_input)
-movie_vec_mlp = Flatten(name='flatten-movie-mlp')(movie_embedding_mlp)
+material_embedding_mlp = Embedding(num_materials + 1, latent_dim, name='material-embedding-mlp')(material_input)
+material_vec_mlp = Flatten(name='flatten-material-mlp')(material_embedding_mlp)
 
-user_embedding_mlp = Embedding(num_users + 1, latent_dim, name='user-embedding-mlp')(user_input)
-user_vec_mlp = Flatten(name='flatten-user-mlp')(user_embedding_mlp)
+customer_embedding_mlp = Embedding(num_customers + 1, latent_dim, name='customer-embedding-mlp')(customer_input)
+customer_vec_mlp = Flatten(name='flatten-customer-mlp')(customer_embedding_mlp)
 
 # MF Embeddings
-movie_embedding_mf = Embedding(num_movies + 1, latent_dim, name='movie-embedding-mf')(movie_input)
-movie_vec_mf = Flatten(name='flatten-movie-mf')(movie_embedding_mf)
+material_embedding_mf = Embedding(num_materials + 1, latent_dim, name='material-embedding-mf')(material_input)
+material_vec_mf = Flatten(name='flatten-material-mf')(material_embedding_mf)
 
-user_embedding_mf = Embedding(num_users + 1, latent_dim, name='user-embedding-mf')(user_input)
-user_vec_mf = Flatten(name='flatten-user-mf')(user_embedding_mf)
+customer_embedding_mf = Embedding(num_customers + 1, latent_dim, name='customer-embedding-mf')(customer_input)
+customer_vec_mf = Flatten(name='flatten-customer-mf')(customer_embedding_mf)
 
 # MLP layers
-concat = tf.keras.layers.Concatenate(axis=-1)([movie_vec_mlp, user_vec_mlp])
+concat = tf.keras.layers.Concatenate(axis=-1)([material_vec_mlp, customer_vec_mlp])
 concat_dropout = Dropout(0.2)(concat)
 fc_1 = Dense(100, name='fc-1', activation='sigmoid')(concat_dropout)
 fc_1_bn = BatchNormalization(name='batch-norm-1')(fc_1)
@@ -64,13 +64,13 @@ fc_2_dropout = Dropout(0.2)(fc_2_bn)
 
 # Prediction from both layers
 pred_mlp = Dense(10, name='pred-mlp', activation='sigmoid')(fc_2_dropout)
-pred_mf = tf.keras.layers.Dot(axes=1)([movie_vec_mf, user_vec_mf])
+pred_mf = tf.keras.layers.Dot(axes=1)([material_vec_mf, customer_vec_mf])
 combine_mlp_mf = tf.keras.layers.Concatenate(axis=-1)([pred_mf, pred_mlp])
 
 # Final prediction
 result = Dense(1, name='result', activation='sigmoid')(combine_mlp_mf)
 
-model = Model([user_input, movie_input], result)
+model = Model([customer_input, material_input], result)
 model.compile('adam', loss=tf.keras.losses.BinaryCrossentropy(), metrics=[tf.keras.metrics.BinaryCrossentropy(), 'mse', 'mae', tf.keras.metrics.FalseNegatives(), tf.keras.metrics.FalsePositives(), tf.keras.metrics.TrueNegatives(), tf.keras.metrics.TruePositives(), tf.keras.metrics.Accuracy(), tf.keras.metrics.BinaryAccuracy()])
 
 #train and evaluate the model

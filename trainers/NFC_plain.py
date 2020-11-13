@@ -10,6 +10,11 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
+from src.AAUFile import *
+from getpass import getpass
+import smbclient as smbc
+
+
 
 start_time = time.time()
 
@@ -17,8 +22,12 @@ print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('
 
 print ('Loading dataset...')
 
-#dataset = pd.read_csv('//cs.aau.dk/Fileshares/IT703e20/CleanDatasets/binary_cleaned_incl_customers.csv', header=0, names=['index', 'customer_id', 'material_id', 'is_real'])
-dataset = pd.read_csv('D:/ML/dataset/binary_cleaned_incl_customers.csv', header=0, names=['index', 'customer_id', 'material_id', 'is_real'])
+with smbc.open_file((r"\\cs.aau.dk\Fileshares\IT703e20\CleanDatasets\binary_cleaned_incl_customers.csv"), mode="r", username=input("username: "), password=getpass()) as f:
+    dataset = pd.read_csv(f, header=0, names=['index', 'customer_id', 'material_id', 'is_real'])
+
+
+
+#dataset = pd.read_csv('D:/ML/dataset/binary_cleaned_incl_customers.csv', header=0, names=['index', 'customer_id', 'material_id', 'is_real'])
 
 print ('Dataset loaded')
 

@@ -12,6 +12,7 @@ REGULARIZATION = 0.01
 
 NUMBER_OF_FACTORS = 5
 
+FILE_PATH = r'/run/user/1000/gvfs/smb-share:server=cs.aau.dk,share=fileshares/IT703e20/CleanDatasets/with_0s/binary_MC_with_0s_populated1000.csv'
 VERBOSE = False
 PRINT_EVERY = 500
 
@@ -57,16 +58,16 @@ def  fit_model(data_chunks, user_matrix, item_matrix, user_ids, item_ids):
             user = user_ids[row[USER_ID_COLUMN]]
             item = item_ids[row[ITEM_ID_COLUMN]]
 
-            item_vector = item_matrix[:, item]
-            user_vector = user_matrix[:, user]
+            item_vector = item_matrix[item, :]
+            user_vector = user_matrix[user, :]
 
             error = row[RATING_COLUMN] - np.dot(item_vector, user_vector)
             item_vector = item_vector + LEARNING_RATE * (error * user_vector - REGULARIZATION * item_vector)
             user_vector = user_vector + LEARNING_RATE * (error * item_vector - REGULARIZATION * user_vector)
 
             for n in range(0, NUMBER_OF_FACTORS):
-                item_matrix[n, item] = item_vector[n]
-                user_matrix[n, user] = user_vector[n]
+                item_matrix[item, n] = item_vector[n]
+                user_matrix[user, n] = user_vector[n]
 
 
             if index%PRINT_EVERY == 0:
@@ -88,8 +89,8 @@ def  mean_absolute_error(data_chunks, user_matrix, item_matrix, user_ids, item_i
             user = user_ids[row[USER_ID_COLUMN]]
             item = item_ids[row[ITEM_ID_COLUMN]]
 
-            item_vector = item_matrix[:, item]
-            user_vector = user_matrix[:, user]
+            item_vector = item_matrix[item, :]
+            user_vector = user_matrix[user, :]
 
             error = row[RATING_COLUMN] - np.dot(item_vector, user_vector)
             
@@ -106,44 +107,22 @@ def  mean_absolute_error(data_chunks, user_matrix, item_matrix, user_ids, item_i
 
     return accumulator / count
 
-        
-#n = 5 # Number of factors
-#
-#get_error(r_ui, item_vector, user_vector)
-#    return r_ui - dotp(item_vector, user_vector)
-#
-#train_model(R, Q, P)
-#    for _ in range 0 .. number_of_training_iterations
-#        for u in range 0.. height(R) :
-#            for i in range 0 .. length(R):
-#                error = get_error(R[u][i], Q[i], P[u])
-#                
-#                Q[i] = Q[i] + learning_rate * error * Q[i]
-#                P[i] = P[i] + learning_rate * error * P[i]
-#
-#    return Q, P
-#
-## predict rating for item i and user u
-#dotp(Q[i], P[u])
-
-
 
 if __name__ == "__main__":
-    file = r'/run/user/1000/gvfs/smb-share:server=cs.aau.dk,share=fileshares/IT703e20/CleanDatasets/with_0s/binary_MC_with_0s_populated1000.csv'
-    data_chunks = pd.read_csv(file, chunksize=CHUNK_SIZE)
+    data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE)
 
     print("Digesting....\n----------------")
     user_ids, item_ids, uid_max, iid_max = convert_ids(data_chunks)
     
-    user_matrix = np.random.random((NUMBER_OF_FACTORS, uid_max + 1))
-    item_matrix = np.random.random((NUMBER_OF_FACTORS, iid_max + 1))
+    user_matrix = np.random.random((uid_max + 1, NUMBER_OF_FACTORS))
+    item_matrix = np.random.random((iid_max + 1, NUMBER_OF_FACTORS))
 
     for i in range(0,  EPOCHS):
         print (f"::::EPOCH {i}::::")
-        data_chunks = pd.read_csv(file, chunksize=CHUNK_SIZE)
+        data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE)
         fit_model(data_chunks, user_matrix, item_matrix, user_ids, item_ids)
 
-        data_chunks = pd.read_csv(file, chunksize=CHUNK_SIZE)
+        data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE)
 
         err = mean_absolute_error(data_chunks, user_matrix, item_matrix, user_ids, item_ids)
         print(f"Error: {err}")

@@ -85,6 +85,9 @@ def  mean_square_error(data_chunks, user_matrix, item_matrix, user_ids, item_ids
             accumulator += error ** 2
             count += 1
 
+            if index%PRINT_EVERY == 0:
+                print("calculating mse... at index: {}".format(index))
+
         if number_of_chunks_to_eat <= 0:
             break
         else:

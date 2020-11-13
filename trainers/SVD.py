@@ -3,8 +3,7 @@ import pandas as pd
 
 CHUNK_SIZE = 100
 NUMBER_OF_CHUNKS_TO_EAT = 100
-PRINT_EVERY = 500
-EPOCHS = 10
+EPOCHS = 40
 USER_ID_COLUMN = "CUSTOMER_ID"
 ITEM_ID_COLUMN = " MATERIAL"
 RATING_COLUMN = " is_real"
@@ -14,6 +13,7 @@ REGULARIZATION = 0.01
 NUMBER_OF_FACTORS = 5
 
 VERBOSE = False
+PRINT_EVERY = 500
 
 def print_verbose(message):
     if VERBOSE:
@@ -57,12 +57,16 @@ def  fit_model(data_chunks, user_matrix, item_matrix, user_ids, item_ids):
             user = user_ids[row[USER_ID_COLUMN]]
             item = item_ids[row[ITEM_ID_COLUMN]]
 
-            q_i = item_matrix[:, item]
-            p_u = user_matrix[:, user]
+            item_vector = item_matrix[:, item]
+            user_vector = user_matrix[:, user]
 
-            error = row[RATING_COLUMN] - np.dot(q_i, p_u)
-            q_i = q_i + LEARNING_RATE * (error * p_u - REGULARIZATION * q_i)
-            p_u = p_u + LEARNING_RATE * (error * q_i - REGULARIZATION * p_u)
+            error = row[RATING_COLUMN] - np.dot(item_vector, user_vector)
+            item_vector = item_vector + LEARNING_RATE * (error * user_vector - REGULARIZATION * item_vector)
+            user_vector = user_vector + LEARNING_RATE * (error * item_vector - REGULARIZATION * user_vector)
+
+            for n in range(0, NUMBER_OF_FACTORS):
+                item_matrix[n, item] = item_vector[n]
+                user_matrix[n, user] = user_vector[n]
 
 
             if index%PRINT_EVERY == 0:
@@ -84,10 +88,10 @@ def  mean_absolute_error(data_chunks, user_matrix, item_matrix, user_ids, item_i
             user = user_ids[row[USER_ID_COLUMN]]
             item = item_ids[row[ITEM_ID_COLUMN]]
 
-            q_i = item_matrix[:, item]
-            p_u = user_matrix[:, user]
+            item_vector = item_matrix[:, item]
+            user_vector = user_matrix[:, user]
 
-            error = row[RATING_COLUMN] - np.dot(q_i, p_u)
+            error = row[RATING_COLUMN] - np.dot(item_vector, user_vector)
             
             accumulator += np.absolute(error)
             count += 1
@@ -105,8 +109,8 @@ def  mean_absolute_error(data_chunks, user_matrix, item_matrix, user_ids, item_i
         
 #n = 5 # Number of factors
 #
-#get_error(r_ui, q_i, p_u)
-#    return r_ui - dotp(q_i, p_u)
+#get_error(r_ui, item_vector, user_vector)
+#    return r_ui - dotp(item_vector, user_vector)
 #
 #train_model(R, Q, P)
 #    for _ in range 0 .. number_of_training_iterations
@@ -143,3 +147,6 @@ if __name__ == "__main__":
 
         err = mean_absolute_error(data_chunks, user_matrix, item_matrix, user_ids, item_ids)
         print(f"Error: {err}")
+    
+    print(user_matrix)
+    print(item_matrix)

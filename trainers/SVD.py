@@ -2,15 +2,22 @@ import numpy as np
 import pandas as pd
 
 CHUNK_SIZE = 100
-PRINT_EVERY = 10000
+NUMBER_OF_CHUNKS_TO_EAT = 100
+PRINT_EVERY = 500
+EPOCHS = 10
 USER_ID_COLUMN = "CUSTOMER_ID"
 ITEM_ID_COLUMN = " MATERIAL"
 RATING_COLUMN = " is_real"
 LEARNING_RATE = 0.01
 REGULARIZATION = 0.01
-NUMBER_OF_CHUNKS_TO_EAT = 1000
 
 NUMBER_OF_FACTORS = 5
+
+VERBOSE = False
+
+def print_verbose(message):
+    if VERBOSE:
+        print(message)
 
 def convert_ids(data_chunks):
     user_ids = {}
@@ -32,7 +39,7 @@ def convert_ids(data_chunks):
 
 
             if index%PRINT_EVERY == 0:
-                print("digesting... at index: {} next_item_id is {}".format(index, next_item_id))
+                print_verbose("digesting... at index: {} next_item_id is {}".format(index, next_item_id))
         
         if number_of_chunks_to_eat <= 0:
             break
@@ -59,14 +66,14 @@ def  fit_model(data_chunks, user_matrix, item_matrix, user_ids, item_ids):
 
 
             if index%PRINT_EVERY == 0:
-                print("training... at index: {} error is {}".format(index, error))
+                print_verbose("training... at index: {} error is {}".format(index, error))
         
         if number_of_chunks_to_eat <= 0:
             break
         else:
             number_of_chunks_to_eat -= 1
 
-def  mean_square_error(data_chunks, user_matrix, item_matrix, user_ids, item_ids):
+def  mean_absolute_error(data_chunks, user_matrix, item_matrix, user_ids, item_ids):
     number_of_chunks_to_eat = NUMBER_OF_CHUNKS_TO_EAT
     accumulator = 0
     count = 0
@@ -82,11 +89,11 @@ def  mean_square_error(data_chunks, user_matrix, item_matrix, user_ids, item_ids
 
             error = row[RATING_COLUMN] - np.dot(q_i, p_u)
             
-            accumulator += error ** 2
+            accumulator += np.absolute(error)
             count += 1
 
             if index%PRINT_EVERY == 0:
-                print("calculating mse... at index: {}".format(index))
+                print_verbose("calculating mean error... at index: {}".format(index))
 
         if number_of_chunks_to_eat <= 0:
             break
@@ -120,21 +127,19 @@ def  mean_square_error(data_chunks, user_matrix, item_matrix, user_ids, item_ids
 if __name__ == "__main__":
     file = r'/run/user/1000/gvfs/smb-share:server=cs.aau.dk,share=fileshares/IT703e20/CleanDatasets/with_0s/binary_MC_with_0s_populated1000.csv'
     data_chunks = pd.read_csv(file, chunksize=CHUNK_SIZE)
+
+    print("Digesting....\n----------------")
     user_ids, item_ids, uid_max, iid_max = convert_ids(data_chunks)
     
     user_matrix = np.random.random((NUMBER_OF_FACTORS, uid_max + 1))
     item_matrix = np.random.random((NUMBER_OF_FACTORS, iid_max + 1))
 
-    data_chunks = pd.read_csv(file, chunksize=CHUNK_SIZE)
+    for i in range(0,  EPOCHS):
+        print (f"::::EPOCH {i}::::")
+        data_chunks = pd.read_csv(file, chunksize=CHUNK_SIZE)
+        fit_model(data_chunks, user_matrix, item_matrix, user_ids, item_ids)
 
-    fit_model(data_chunks, user_matrix, item_matrix, user_ids, item_ids)
+        data_chunks = pd.read_csv(file, chunksize=CHUNK_SIZE)
 
-    data_chunks = pd.read_csv(file, chunksize=CHUNK_SIZE)
-
-    mse = mean_square_error(data_chunks, user_matrix, item_matrix, user_ids, item_ids)
-    print(mse)
-
-    print("~"*5)
-
-    print(user_matrix)
-    print(item_matrix)
+        err = mean_absolute_error(data_chunks, user_matrix, item_matrix, user_ids, item_ids)
+        print(f"Error: {err}")

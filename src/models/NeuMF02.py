@@ -1,4 +1,4 @@
-# import numpy as np
+import numpy as np
 # from tqdm import tqdm
 import pandas as pd
 import tensorflow as tf
@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 import sys
 
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.losses import BinaryCrossentropy
+from tensorflow.keras.losses import BinaryCrossentropy, MSE
 from tensorflow.keras.metrics import BinaryAccuracy
 
 from tensorflow.keras.layers import Input, Concatenate
@@ -16,7 +16,7 @@ from tensorflow.keras.utils import model_to_dot
 
 MODEL_TO_DOT_PNG = 'export/model.png'
 USER_FEATURE = 'CUSTOMER_ID'
-ITEM_FEATURE = 'PRODUCT_ID'
+PRODUCT_FEATURE = 'PRODUCT_ID'
 CP_PATH = 'checkpoints/NeuMF02/cp'
 
 
@@ -62,16 +62,17 @@ def buildNeuralCollaborativeFilteringModel(numUser, numItem, numFactor):
   output = Dense(1, activation='sigmoid')(combine) #activation='sigmoid'
 
   inputs = [userId, itemId]
-  model = Model(inputs, output, name='MLP')
+  model = Model(inputs, output, name='NeuMF')
 
-  model.compile(Adam(1e-3), loss=BinaryCrossentropy(), metrics=[BinaryAccuracy()])
+  # model.compile(Adam(1e-3), loss=BinaryCrossentropy(), metrics=[BinaryAccuracy()])
+  model.compile(Adam(1e-3), loss='mean_squared_error', metrics=['mse', 'mae', tf.keras.metrics.FalseNegatives(), tf.keras.metrics.FalsePositives(), tf.keras.metrics.TrueNegatives(), tf.keras.metrics.TruePositives(), BinaryAccuracy()])
 
   return model
 
 
 def bootstrapDataset(df, negRatio=3., batchSize=128, shuffle=True):
-  posDf = df[[USER_FEATURE, ITEM_FEATURE]].copy()
-  negDf = df[[USER_FEATURE, ITEM_FEATURE]].sample(frac=negRatio, replace=True).copy()
+  posDf = df[[USER_FEATURE, PRODUCT_FEATURE]].copy()
+  negDf = df[[USER_FEATURE, PRODUCT_FEATURE]].sample(frac=negRatio, replace=True).copy()
   negDf.PRODUCT_ID = negDf.PRODUCT_ID.sample(frac=1.).values
 
   posDf['label'] = 1.
@@ -80,21 +81,23 @@ def bootstrapDataset(df, negRatio=3., batchSize=128, shuffle=True):
 
   X = {
     "user": mergeDf[USER_FEATURE].values,
-    "item": mergeDf[ITEM_FEATURE].values
+    "item": mergeDf[PRODUCT_FEATURE].values
   }
   Y = mergeDf.label.values
 
   ds = (tf.data.Dataset.from_tensor_slices((X, Y))
         .batch(batchSize))
+
   if shuffle:
     ds = ds.shuffle(buffer_size=len(df))
+
   return ds
 
 
 def main():
-  isTraining = True
+  isTraining = False
 
-  transactionDf = getData(500000)
+  transactionDf = getData()
 
   numUser = transactionDf.CUSTOMER_ID.max() + 1
   numItem = transactionDf.PRODUCT_ID.max() + 1
@@ -111,12 +114,9 @@ def main():
   model.summary()
 
   train, test = train_test_split(transactionDf, test_size=0.2)
-  trainSubset, val = train_test_split(train, test_size=0.2)
   print(len(train), 'train examples')
-  print(len(val), 'validation examples')
   print(len(test), 'test examples')
 
-  testDataset = bootstrapDataset(test, epochs, batchSize, False)
   if isTraining:
     # Create a callback that saves the model's weights
     checkpointCallBack = tf.keras.callbacks.ModelCheckpoint(filepath=CP_PATH,
@@ -124,23 +124,37 @@ def main():
                                                             verbose=1)
 
     trainDataset = bootstrapDataset(train, epochs, batchSize)
-    valDataset = bootstrapDataset(val, epochs, batchSize, False)
+
+    # split validation dataset
+    testDataset = bootstrapDataset(test, epochs, batchSize, False)
     model.fit(trainDataset, validation_data=testDataset,
                             epochs=epochs,
                             callbacks=[checkpointCallBack])
 
     print("Evaluating trained model...")
-    loss, accuracy = model.evaluate(valDataset)
-    print("Accuracy", accuracy)
-    print("Predict a sample:")
+    _, val = train_test_split(train, test_size=0.2)
+    valDataset = bootstrapDataset(val, epochs, batchSize, False)
+    loss, mse, mae, fn, fp, tn, tp, ba = model.evaluate(valDataset)
+    print("Accuracy: ", [loss, mse, mae, fn, fp, tn, tp, ba])
 
   else:
     model.load_weights(CP_PATH)
 
-    print("Predict a sample:")
-    predictions = model.predict(testDataset) #TODO give prediction to one entity only?
+    predict = bootstrapDataset(test, epochs, batchSize, False)
 
-    print("predictions shape:", predictions.shape)
+    predictions = model.predict(predict)
+    i = 0
+    extractFeatures = {}
+    for features, label in predict.as_numpy_iterator():
+      users = features['user']
+      items = features['item']
+      j = 0
+      for u in users:
+        if u == 190:
+          extractFeatures[items[j]] = predictions[i][0]
+        j = j + 1
+        i = i + 1
+    print("predictions shape:", sorted(extractFeatures.items(), key=lambda x: x[1], reverse=True))
 
 
 if __name__ == "__main__":

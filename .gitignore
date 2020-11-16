@@ -3,3 +3,4 @@ src/models/__pycache__
 data
 src/prepare/__pycache__
 export
+checkpoints

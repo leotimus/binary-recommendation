@@ -100,7 +100,7 @@ if __name__ == "__main__":
 	learningRate = 0.1
 	optimiser = "Adam"
 	splitRatio = 0.8
-	loss = "MSE"
+	loss = None
 	filename = r"CleanDatasets\no_0s\binary_MC_global_no0s.csv"
 	epoch = 10
 	embNum = 32

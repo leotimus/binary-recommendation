@@ -50,7 +50,15 @@ def convert_ids(data_chunks):
 
     return user_ids, item_ids, next_user_id-1, next_item_id-1
 
-def  fit_model(data_chunks, user_matrix, item_matrix, user_ids, item_ids):
+def predict(user, item, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias):
+    item_vector = item_matrix[item, :]
+    user_vector = user_matrix[user, :]
+    item_bias = item_bias_vector[item]
+    user_bias = user_bias_vector[user]
+
+    return user_bias + item_bias + global_bias + np.dot(item_vector, user_vector)
+
+def  fit_model(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids):
     number_of_chunks_to_eat = NUMBER_OF_CHUNKS_TO_EAT
 
     for chunk in data_chunks:
@@ -62,9 +70,12 @@ def  fit_model(data_chunks, user_matrix, item_matrix, user_ids, item_ids):
             item_vector = item_matrix[item, :]
             user_vector = user_matrix[user, :]
 
-            error = row[RATING_COLUMN] - np.dot(item_vector, user_vector)
+            error = row[RATING_COLUMN] - predict(user, item, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias)
+
             item_vector = item_vector + LEARNING_RATE * (error * user_vector - REGULARIZATION * item_vector)
             user_vector = user_vector + LEARNING_RATE * (error * item_vector - REGULARIZATION * user_vector)
+            user_bias_vector[user] = user_bias_vector[user] + LEARNING_RATE * (error * user_bias_vector[user] - REGULARIZATION * user_bias_vector[user])
+            item_bias_vector[item] = item_bias_vector[item] + LEARNING_RATE * (error * item_bias_vector[item] - REGULARIZATION * item_bias_vector[item])
 
             for n in range(0, NUMBER_OF_FACTORS):
                 item_matrix[item, n] = item_vector[n]
@@ -137,27 +148,30 @@ def recommend(user_vector, item_matrix, k):
             minimum_value = min(result, key=lambda x: x.prediction)
     
     return result
-    
+
 if __name__ == "__main__":
     data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE, usecols=[USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN])
 
     print("Digesting....\n----------------")
     user_ids, item_ids, uid_max, iid_max = convert_ids(data_chunks)
+    number_of_users = uid_max + 1
+    number_of_items = iid_max + 1
     
-    user_matrix = np.random.random((uid_max + 1, NUMBER_OF_FACTORS))
-    item_matrix = np.random.random((iid_max + 1, NUMBER_OF_FACTORS))
+    user_matrix = np.random.random((number_of_users, NUMBER_OF_FACTORS))
+    item_matrix = np.random.random((number_of_items, NUMBER_OF_FACTORS))
+    user_bias_vector = np.zeros(number_of_users)
+    item_bias_vector = np.zeros(number_of_items)
+    global_bias = 3
 
     print("Training:")
 
     for i in range(0,  EPOCHS):
         data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE, usecols=[USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN])
-        fit_model(data_chunks, user_matrix, item_matrix, user_ids, item_ids)
+        fit_model(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
 
         data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE)
 
         err = mean_absolute_error(data_chunks, user_matrix, item_matrix, user_ids, item_ids)
         print (f"::::EPOCH {i}::::      Error: {err}")
-    
-    recommendations = recommend(user_matrix[4], item_matrix, 10)
-    print (recommendations)
+        
     

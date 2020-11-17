@@ -21,7 +21,7 @@ def print_verbose(message):
     if VERBOSE:
         print(message)
 
-def convert_ids(data_chunks):
+def digest(data_chunks):
     user_ids = {}
     item_ids = {}
     next_user_id = 0
@@ -185,7 +185,7 @@ if __name__ == "__main__":
     data_chunks = read_csv()
 
     print("Digesting....\n----------------")
-    user_ids, item_ids, uid_max, iid_max = convert_ids(data_chunks)
+    user_ids, item_ids, uid_max, iid_max = digest(data_chunks)
     number_of_users = uid_max + 1
     number_of_items = iid_max + 1
 

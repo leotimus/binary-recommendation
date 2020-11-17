@@ -27,56 +27,59 @@ def digest(data_chunks):
     next_user_id = 0
     next_item_id = 0
 
-    number_of_chunks_to_eat = NUMBER_OF_CHUNKS_TO_EAT
-
-    for chunk in data_chunks:
-        for index, row in chunk.iterrows():
-            if not (row[USER_ID_COLUMN] in user_ids):
-                user_ids[row[USER_ID_COLUMN]] = next_user_id
-                next_user_id += 1
-            
-            if not (row[ITEM_ID_COLUMN] in item_ids):
-                item_ids[row[ITEM_ID_COLUMN]] = next_item_id
-                next_item_id += 1
-
-
-            if index%PRINT_EVERY == 0:
-                print_verbose("digesting... at index: {} next_item_id is {}".format(index, next_item_id))
-        
-        number_of_chunks_to_eat -= 1
-        if number_of_chunks_to_eat <= 0:
-            break
-
-    return user_ids, item_ids, next_user_id-1, next_item_id-1
-
-def calculate_global_bias(data_chunks):
-    number_of_chunks_to_eat = NUMBER_OF_CHUNKS_TO_EAT
-
     total_so_far = 0
     average_so_far = 0
 
+    number_of_chunks_to_eat = NUMBER_OF_CHUNKS_TO_EAT
+
     for chunk in data_chunks:
+        next_user_id, next_item_id = convert_ids(chunk, user_ids, item_ids, next_user_id, next_item_id)
+
         chunk_total = chunk.shape[0]
         chunk_accumulator = 0
 
-        for index, row in chunk.iterrows():
-            
-            rating = row[RATING_COLUMN]
-
-            chunk_accumulator += rating
-
-            if index%PRINT_EVERY == 0:
-                print_verbose(f"calculating global average... at index: {index} average so far is {average_so_far}")
+        total_so_far, average_so_far = calculate_average(chunk, total_so_far, average_so_far)
         
-        chunk_average = chunk_accumulator / chunk_total
-
-        total_so_far += chunk_total
-        average_so_far = ((chunk_total/total_so_far) * chunk_average) + (((total_so_far-chunk_total)/total_so_far) *average_so_far)
-
         number_of_chunks_to_eat -= 1
         if number_of_chunks_to_eat <= 0:
             break
-    return average_so_far
+
+    return user_ids, item_ids, next_user_id-1, next_item_id-1, average_so_far
+
+def convert_ids(chunk, user_ids, item_ids, next_user_id, next_item_id):
+    for index, row in chunk.iterrows():
+        if not (row[USER_ID_COLUMN] in user_ids):
+            user_ids[row[USER_ID_COLUMN]] = next_user_id
+            next_user_id += 1
+        
+        if not (row[ITEM_ID_COLUMN] in item_ids):
+            item_ids[row[ITEM_ID_COLUMN]] = next_item_id
+            next_item_id += 1
+
+        if index%PRINT_EVERY == 0:
+            print_verbose("digesting... at index: {} next_item_id is {}".format(index, next_item_id))
+        
+    return next_user_id, next_item_id
+
+def calculate_average(chunk, total_so_far, average_so_far):
+    chunk_total = chunk.shape[0]
+    chunk_accumulator = 0
+
+    for index, row in chunk.iterrows():
+        
+        rating = row[RATING_COLUMN]
+
+        chunk_accumulator += rating
+
+        if index%PRINT_EVERY == 0:
+            print_verbose(f"calculating global average... at index: {index} average so far is {average_so_far}")
+    
+    chunk_average = chunk_accumulator / chunk_total
+
+    total_so_far += chunk_total
+    average_so_far = ((chunk_total/total_so_far) * chunk_average) + (((total_so_far-chunk_total)/total_so_far) *average_so_far)
+
+    return total_so_far, average_so_far
 
 def predict(user, item, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias):
     item_vector = item_matrix[item, :]
@@ -185,14 +188,11 @@ if __name__ == "__main__":
     data_chunks = read_csv()
 
     print("Digesting....\n----------------")
-    user_ids, item_ids, uid_max, iid_max = digest(data_chunks)
+    user_ids, item_ids, uid_max, iid_max, global_bias = digest(data_chunks)
     number_of_users = uid_max + 1
     number_of_items = iid_max + 1
 
     data_chunks = read_csv()
-
-    print("Calculating global bias....\n----------------")
-    global_bias = calculate_global_bias(data_chunks)
 
     print(f"global bias: {global_bias}")
     

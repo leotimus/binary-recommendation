@@ -43,10 +43,9 @@ def convert_ids(data_chunks):
             if index%PRINT_EVERY == 0:
                 print_verbose("digesting... at index: {} next_item_id is {}".format(index, next_item_id))
         
+        number_of_chunks_to_eat -= 1
         if number_of_chunks_to_eat <= 0:
             break
-        else:
-            number_of_chunks_to_eat -= 1
 
     return user_ids, item_ids, next_user_id-1, next_item_id-1
 
@@ -74,10 +73,9 @@ def calculate_global_bias(data_chunks):
         total_so_far += chunk_total
         average_so_far = ((chunk_total/total_so_far) * chunk_average) + (((total_so_far-chunk_total)/total_so_far) *average_so_far)
 
+        number_of_chunks_to_eat -= 1
         if number_of_chunks_to_eat <= 0:
             break
-        else:
-            number_of_chunks_to_eat -= 1
     return average_so_far
 
 def predict(user, item, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias):
@@ -114,10 +112,9 @@ def  fit_model(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bia
             if index%PRINT_EVERY == 0:
                 print_verbose(f"training... at index: {index} error is {error}")
 
+        number_of_chunks_to_eat -= 1
         if number_of_chunks_to_eat <= 0:
             break
-        else:
-            number_of_chunks_to_eat -= 1
 
 def  mean_generic_error(generic, data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids):
     number_of_chunks_to_eat = NUMBER_OF_CHUNKS_TO_EAT
@@ -138,10 +135,9 @@ def  mean_generic_error(generic, data_chunks, user_matrix, item_matrix, user_bia
             if index%PRINT_EVERY == 0:
                 print_verbose("calculating mean error... at index: {}".format(index))
 
+        number_of_chunks_to_eat -= 1
         if number_of_chunks_to_eat <= 0:
             break
-        else:
-            number_of_chunks_to_eat -= 1
 
     return accumulator / count
 

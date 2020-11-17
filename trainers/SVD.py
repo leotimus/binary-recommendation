@@ -139,9 +139,8 @@ def recommend(user_vector, item_matrix, k):
     
     return result
     
-
 if __name__ == "__main__":
-    data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE)
+    data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE, usecols=[USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN])
 
     print("Digesting....\n----------------")
     user_ids, item_ids, uid_max, iid_max = convert_ids(data_chunks)
@@ -152,7 +151,7 @@ if __name__ == "__main__":
     print("Training:")
 
     for i in range(0,  EPOCHS):
-        data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE)
+        data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE, usecols=[USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN])
         fit_model(data_chunks, user_matrix, item_matrix, user_ids, item_ids)
 
         data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE)

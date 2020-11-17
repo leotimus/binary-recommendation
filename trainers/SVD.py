@@ -117,15 +117,16 @@ if __name__ == "__main__":
     user_matrix = np.random.random((uid_max + 1, NUMBER_OF_FACTORS))
     item_matrix = np.random.random((iid_max + 1, NUMBER_OF_FACTORS))
 
+    print("Training:")
+
     for i in range(0,  EPOCHS):
-        print (f"::::EPOCH {i}::::")
         data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE)
         fit_model(data_chunks, user_matrix, item_matrix, user_ids, item_ids)
 
         data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE)
 
         err = mean_absolute_error(data_chunks, user_matrix, item_matrix, user_ids, item_ids)
-        print(f"Error: {err}")
+        print (f"::::EPOCH {i}::::      Error: {err}")
     
     print(user_matrix)
     print(item_matrix)

@@ -89,7 +89,7 @@ def  fit_model(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bia
         else:
             number_of_chunks_to_eat -= 1
 
-def  mean_absolute_error(data_chunks, user_matrix, item_matrix, user_ids, item_ids):
+def  mean_generic_error(generic, data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids):
     number_of_chunks_to_eat = NUMBER_OF_CHUNKS_TO_EAT
     accumulator = 0
     count = 0
@@ -100,12 +100,9 @@ def  mean_absolute_error(data_chunks, user_matrix, item_matrix, user_ids, item_i
             user = user_ids[row[USER_ID_COLUMN]]
             item = item_ids[row[ITEM_ID_COLUMN]]
 
-            item_vector = item_matrix[item, :]
-            user_vector = user_matrix[user, :]
-
-            error = row[RATING_COLUMN] - np.dot(item_vector, user_vector)
+            error = row[RATING_COLUMN] - predict(user, item, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias)
             
-            accumulator += np.absolute(error)
+            accumulator += generic(error)
             count += 1
 
             if index%PRINT_EVERY == 0:
@@ -117,6 +114,12 @@ def  mean_absolute_error(data_chunks, user_matrix, item_matrix, user_ids, item_i
             number_of_chunks_to_eat -= 1
 
     return accumulator / count
+
+def mean_absolute_error(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids):
+    return mean_generic_error(abs, data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
+
+def mean_square_error(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids):
+    return mean_generic_error(lambda x: x**2, data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
 
 class rating_prediction:
     index = 0
@@ -171,7 +174,7 @@ if __name__ == "__main__":
 
         data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE)
 
-        err = mean_absolute_error(data_chunks, user_matrix, item_matrix, user_ids, item_ids)
+        err = mean_square_error(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
         print (f"::::EPOCH {i}::::      Error: {err}")
         
     

@@ -70,10 +70,9 @@ def  fit_model(data_chunks, user_matrix, item_matrix, user_ids, item_ids):
                 item_matrix[item, n] = item_vector[n]
                 user_matrix[user, n] = user_vector[n]
 
-
             if index%PRINT_EVERY == 0:
-                print_verbose("training... at index: {} error is {}".format(index, error))
-        
+                print_verbose(f"training... at index: {index} error is {error}")
+
         if number_of_chunks_to_eat <= 0:
             break
         else:

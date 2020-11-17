@@ -50,6 +50,36 @@ def convert_ids(data_chunks):
 
     return user_ids, item_ids, next_user_id-1, next_item_id-1
 
+def calculate_global_bias(data_chunks):
+    number_of_chunks_to_eat = NUMBER_OF_CHUNKS_TO_EAT
+
+    total_so_far = 0
+    average_so_far = 0
+
+    for chunk in data_chunks:
+        chunk_total = chunk.shape[0]
+        chunk_accumulator = 0
+
+        for index, row in chunk.iterrows():
+            
+            rating = row[RATING_COLUMN]
+
+            chunk_accumulator += rating
+
+            if index%PRINT_EVERY == 0:
+                print_verbose(f"calculating global average... at index: {index} average so far is {average_so_far}")
+        
+        chunk_average = chunk_accumulator / chunk_total
+
+        total_so_far += chunk_total
+        average_so_far = ((chunk_total/total_so_far) * chunk_average) + (((total_so_far-chunk_total)/total_so_far) *average_so_far)
+
+        if number_of_chunks_to_eat <= 0:
+            break
+        else:
+            number_of_chunks_to_eat -= 1
+    return average_so_far
+
 def predict(user, item, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias):
     item_vector = item_matrix[item, :]
     user_vector = user_matrix[user, :]
@@ -152,24 +182,33 @@ def recommend(user_vector, item_matrix, k):
     
     return result
 
+def read_csv():
+    return pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE, usecols=[USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN])
+
 if __name__ == "__main__":
-    data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE, usecols=[USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN])
+    data_chunks = read_csv()
 
     print("Digesting....\n----------------")
     user_ids, item_ids, uid_max, iid_max = convert_ids(data_chunks)
     number_of_users = uid_max + 1
     number_of_items = iid_max + 1
+
+    data_chunks = read_csv()
+
+    print("Calculating global bias....\n----------------")
+    global_bias = calculate_global_bias(data_chunks)
+
+    print(f"global bias: {global_bias}")
     
     user_matrix = np.random.random((number_of_users, NUMBER_OF_FACTORS))
     item_matrix = np.random.random((number_of_items, NUMBER_OF_FACTORS))
     user_bias_vector = np.zeros(number_of_users)
     item_bias_vector = np.zeros(number_of_items)
-    global_bias = 3
 
     print("Training:")
 
     for i in range(0,  EPOCHS):
-        data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE, usecols=[USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN])
+        data_chunks = read_csv()
         fit_model(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
 
         data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE)

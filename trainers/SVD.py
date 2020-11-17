@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import math
 
 CHUNK_SIZE = 100
 NUMBER_OF_CHUNKS_TO_EAT = 100
@@ -107,6 +108,37 @@ def  mean_absolute_error(data_chunks, user_matrix, item_matrix, user_ids, item_i
 
     return accumulator / count
 
+class rating_prediction:
+    index = 0
+    prediction = 0
+    
+    def __init__(self, index, prediction):
+        self.index = index
+        self.prediction = prediction
+
+    def __str__(self):
+        return f"({self.prediction} @ {self.index})"
+
+    def __repr__(self):
+        return f"({self.prediction} @ {self.index})"
+
+"""
+    k: number of recommendations to make
+"""
+def recommend(user_vector, item_matrix, k):
+    result = [rating_prediction(None, -math.inf) for _ in range(0, k)]
+
+    minimum_value = result[0]
+
+    for i, item_vector in enumerate(item_matrix):
+        predicted = np.dot(user_vector, item_vector)
+        if (predicted > minimum_value.prediction):
+            result.remove(minimum_value)
+            result.append(rating_prediction(i, predicted))
+            minimum_value = min(result, key=lambda x: x.prediction)
+    
+    return result
+    
 
 if __name__ == "__main__":
     data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE)
@@ -128,5 +160,6 @@ if __name__ == "__main__":
         err = mean_absolute_error(data_chunks, user_matrix, item_matrix, user_ids, item_ids)
         print (f"::::EPOCH {i}::::      Error: {err}")
     
-    print(user_matrix)
-    print(item_matrix)
+    recommendations = recommend(user_matrix[4], item_matrix, 10)
+    print (recommendations)
+    

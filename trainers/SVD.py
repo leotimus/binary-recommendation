@@ -2,20 +2,20 @@ import numpy as np
 import pandas as pd
 import math
 
-CHUNK_SIZE = 100
-NUMBER_OF_CHUNKS_TO_EAT = 100
-EPOCHS = 40
-USER_ID_COLUMN = "CUSTOMER_ID"
-ITEM_ID_COLUMN = " MATERIAL"
-RATING_COLUMN = " is_real"
-LEARNING_RATE = 0.01
+CHUNK_SIZE = 10E4
+NUMBER_OF_CHUNKS_TO_EAT = 10
+EPOCHS = 5
+USER_ID_COLUMN = "user_id"
+ITEM_ID_COLUMN = "item_id"
+RATING_COLUMN = "rating"
+LEARNING_RATE = 0.02
 REGULARIZATION = 0.01
 
 NUMBER_OF_FACTORS = 5
 
-FILE_PATH = r'/run/user/1000/gvfs/smb-share:server=cs.aau.dk,share=fileshares/IT703e20/CleanDatasets/with_0s/binary_MC_with_0s_populated1000.csv'
+FILE_PATH = r"data/ml-100k/all.csv"
 VERBOSE = False
-PRINT_EVERY = 500
+PRINT_EVERY = 5000
 
 def print_verbose(message):
     if VERBOSE:

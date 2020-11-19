@@ -26,7 +26,7 @@ def getData(rows=100000):
   dataPath = sys.argv[1] if len(sys.argv) >= 2 else ''
   nrows = int(sys.argv[2]) if len(sys.argv) >= 3 else rows
   df = pd.read_csv(dataPath, nrows=nrows)
-  df = df.drop(['MATERIAL', 'QUANTITY'], axis=1);
+  df = df.drop(['MATERIAL', 'QUANTITY'], axis=1)
   return df
 
 

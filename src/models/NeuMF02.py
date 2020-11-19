@@ -5,6 +5,7 @@ import tensorflow as tf
 from sklearn.model_selection import train_test_split
 import sys
 
+import matplotlib.pyplot as plt
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import BinaryCrossentropy, MSE
 from tensorflow.keras.metrics import BinaryAccuracy
@@ -15,6 +16,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.utils import model_to_dot
 
 MODEL_TO_DOT_PNG = 'export/model.png'
+MODEL_TRAIN_PLOT = 'export/plot.png'
 USER_FEATURE = 'CUSTOMER_ID'
 PRODUCT_FEATURE = 'PRODUCT_ID'
 CP_PATH = 'checkpoints/NeuMF02/cp'
@@ -94,8 +96,20 @@ def bootstrapDataset(df, negRatio=3., batchSize=128, shuffle=True):
   return ds
 
 
+def plot(history, path):
+  fig, ax = plt.subplots(nrows=1, ncols=1)
+  ax.plot(history.history['loss'], label='loss')
+  ax.plot(history.history['val_loss'], label='val_loss')
+  plt.ylim([0, 1])
+  plt.xlabel('Epoch')
+  plt.ylabel('Error')
+  plt.legend()
+  fig.savefig(path)
+  plt.close(fig)
+
+
 def main():
-  isTraining = False
+  isTraining = True
 
   transactionDf = getData()
 
@@ -127,9 +141,9 @@ def main():
 
     # split validation dataset
     testDataset = bootstrapDataset(test, epochs, batchSize, False)
-    model.fit(trainDataset, validation_data=testDataset,
-                            epochs=epochs,
-                            callbacks=[checkpointCallBack])
+    history = model.fit(trainDataset, validation_data=testDataset, epochs=epochs, callbacks=[checkpointCallBack])
+    plot(history, MODEL_TRAIN_PLOT)
+
 
     print("Evaluating trained model...")
     _, val = train_test_split(train, test_size=0.2)

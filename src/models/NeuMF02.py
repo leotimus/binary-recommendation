@@ -109,7 +109,7 @@ def plot(history, path):
 
 
 def main():
-  isTraining = True
+  isTraining = False
 
   transactionDf = getData()
 
@@ -132,16 +132,13 @@ def main():
   print(len(test), 'test examples')
 
   if isTraining:
-    # Create a callback that saves the model's weights
-    checkpointCallBack = tf.keras.callbacks.ModelCheckpoint(filepath=CP_PATH,
-                                                            save_weights_only=True,
-                                                            verbose=1)
 
     trainDataset = bootstrapDataset(train, epochs, batchSize)
 
     # split validation dataset
     testDataset = bootstrapDataset(test, epochs, batchSize, False)
-    history = model.fit(trainDataset, validation_data=testDataset, epochs=epochs, callbacks=[checkpointCallBack])
+    history = model.fit(trainDataset, validation_data=testDataset, epochs=epochs)
+    tf.saved_model.save(model, CP_PATH)
     plot(history, MODEL_TRAIN_PLOT)
 
 
@@ -152,11 +149,11 @@ def main():
     print("Accuracy: ", [loss, mse, mae, fn, fp, tn, tp, ba])
 
   else:
-    model.load_weights(CP_PATH)
+    savedModel = tf.keras.models.load_model(CP_PATH)
 
     predict = bootstrapDataset(test, epochs, batchSize, False)
 
-    predictions = model.predict(predict)
+    predictions = savedModel.predict(predict)
     i = 0
     extractFeatures = {}
     for features, label in predict.as_numpy_iterator():

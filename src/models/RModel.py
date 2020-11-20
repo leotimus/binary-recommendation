@@ -1,4 +1,4 @@
-import sys
+import sys, os, json
 import pandas as pd
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -6,18 +6,38 @@ from tensorflow.keras.utils import model_to_dot
 from sklearn.model_selection import train_test_split
 
 
-class AbstractModel:
+class RModel:
   CUSTOMER_ID = 'CUSTOMER_ID'
   PRODUCT_ID = 'PRODUCT_ID'
 
-  def __init__(self, name):
-    self.name = name
-    self.modelStructurePath = 'export/{}/model.png'.format(self.name)
-    self.trainResultPlotPath = 'export/{}/plot.png'.format(self.name)
-    self.checkpointPath = 'checkpoints/{}/cp'.format(self.name)
+  def __init__(self, modelName):
+    self.modelName = modelName
+    os.makedirs('export/{}'.format(self.modelName), exist_ok=True)
+    os.makedirs('checkpoints/{}'.format(self.modelName), exist_ok=True)
+    self.modelStructurePath = 'export/{}/model.png'.format(self.modelName)
+    self.trainResultPlotPath = 'export/{}/plot.png'.format(self.modelName)
+    self.checkpointPath = 'checkpoints/{}/cp'.format(self.modelName)
     self.num_factor = 32
     self.epochs = 10
     self.batchSize = 1024 * 16
+    self._test = None # TODO remove
+    self._model = None # TODO remove
+
+  @property
+  def test(self):
+    return self._test
+
+  @test.setter
+  def test(self, value):
+    self._test = value
+
+  @property
+  def model(self):
+    return self._model
+
+  @model.setter
+  def model(self, value):
+    self._model = value
 
   def getData(self, dataPath, rowLimit=None):
     df = pd.read_csv(dataPath, nrows=rowLimit)
@@ -72,59 +92,61 @@ class AbstractModel:
     numUser = transactionDf.CUSTOMER_ID.max() + 1
     numItem = transactionDf.PRODUCT_ID.max() + 1
 
-
-    model = self.buildModel(numUser, numItem, self.num_factor)
+    self._model = self.buildModel(numUser, numItem, self.num_factor)
     try:
-      model_to_dot(model, show_shapes=True).write(path=self.modelStructurePath, prog='dot', format='png')
+      model_to_dot(self._model, show_shapes=True).write(path=self.modelStructurePath, prog='dot', format='png')
     except:
       print('Could not plot model in dot format:', sys.exc_info()[0])
-    model.summary()
+    self._model.summary()
 
-    train, test = train_test_split(transactionDf, test_size=0.2)
+    train, self._test = train_test_split(transactionDf, test_size=0.2)
     print(len(train), 'train examples')
-    print(len(test), 'test examples')
+    print(len(self._test), 'test examples')
 
-    # Create a callback that saves the model's weights
-    checkpointCallBack = tf.keras.callbacks.ModelCheckpoint(filepath=self.checkpointPath,
-                                                            save_weights_only=True,
-                                                            verbose=1)
     # train data set
-    trainDataset = self.bootstrapDataset(train, self.epochs, self.batchSize)
+    trainDataset = self.bootstrapDataset(train)
     # split validation dataset
-    testDataset = self.bootstrapDataset(test, self.epochs, self.batchSize, False)
+    testDataset = self.bootstrapDataset(self._test, shuffle=False)
 
-    history = model.fit(trainDataset, validation_data=testDataset,
-                                      epochs=self.epochs,
-                                      callbacks=[checkpointCallBack])
+    history = self._model.fit(trainDataset, validation_data=testDataset, epochs=self.epochs)
+    tf.saved_model.save(self._model, self.checkpointPath)
     self.plot(history, metricDict)
 
     print("Evaluating trained model...")
     _, val = train_test_split(train, test_size=0.2)
-    valDataset = self.bootstrapDataset(val, self.epochs, self.batchSize, False)
+    valDataset = self.bootstrapDataset(val, shuffle=False)
 
-    returnMetrics = list(model.evaluate(valDataset))
+    returnMetrics = list(self._model.evaluate(valDataset))
     print("Accuracy: ", returnMetrics)
 
-  def predict(self, customerId):
 
-    model = self.buildModel()
-    model.load_weights(self.checkpointPath)
+  def getPredictDataSet(self):
+    print("No implementation")
+    return None
 
-    transactionDf = {}
-    _, test = train_test_split(transactionDf, test_size=0.2)
-    predict = self.bootstrapDataset(test, self.epochs, self.batchSize, False)
+  def predictForUser(self, customerId, numberOfItem = 5):
 
-    predictions = model.predict(predict)
+    predictDataSet = self.bootstrapDataset(self._test, shuffle=False)
+    # savedModel = tf.keras.models.load_model(self.checkpointPath)
+
+    predictions = self._model.predict(predictDataSet)
 
     i = 0
     extractFeatures = {}
-    for features, label in predict.as_numpy_iterator():
+    for features, label in predictDataSet.as_numpy_iterator():
       users = features['user']
       items = features['item']
       j = 0
       for u in users:
-        if u == customerId:
-          extractFeatures[items[j]] = predictions[i][0]
+        if int(u) == int(customerId):
+          extractFeatures[str(items[j])] = str(predictions[i][0])
         j = j + 1
         i = i + 1
-    print("predictions shape:", sorted(extractFeatures.items(), key=lambda x: x[1], reverse=True))
+
+    # rankedItems = sorted(extractFeatures.items(), key=lambda x: x[1], reverse=True)[:numberOfItem]
+    result = sorted(extractFeatures.items(), key=lambda x: x[1], reverse=True)
+    print("predictions shape:", result)
+    return json.dumps(result)
+
+  def getPredictableUsers(self):
+    return json.dumps(self.test.CUSTOMER_ID.unique().tolist())

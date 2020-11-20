@@ -1,21 +1,13 @@
-import numpy as np
-# from tqdm import tqdm
-import pandas as pd
 import tensorflow as tf
-from sklearn.model_selection import train_test_split
-import sys
 
-import matplotlib.pyplot as plt
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.losses import BinaryCrossentropy, MSE
 from tensorflow.keras.metrics import BinaryAccuracy
 
 from tensorflow.keras.layers import Input, Concatenate
 from tensorflow.keras.layers import Dense, Embedding, Dropout, BatchNormalization, Dot
 from tensorflow.keras.models import Model
-from tensorflow.keras.utils import model_to_dot
 
-from src.models.AbstractModel import AbstractModel
+from src.models.RModel import RModel
 
 MODEL_TO_DOT_PNG = 'export/model.png'
 MODEL_TRAIN_PLOT = 'export/plot.png'
@@ -24,10 +16,9 @@ PRODUCT_FEATURE = 'PRODUCT_ID'
 CP_PATH = 'checkpoints/NeuMF02/cp'
 
 
-class NeuMFModel(AbstractModel):
+class NeuMFModel(RModel):
 
   def buildModel(self, numUser, numItem, numFactor):
-
     userId = Input(shape=(), name='user')
     itemId = Input(shape=(), name='item')
 
@@ -57,12 +48,14 @@ class NeuMFModel(AbstractModel):
     combine = Concatenate()([hidden3MLP, predMF])
 
     # Final prediction
-    output = Dense(1, activation='sigmoid')(combine) #activation='sigmoid'
+    output = Dense(1, activation='sigmoid')(combine)  # activation='sigmoid'
 
     inputs = [userId, itemId]
-    model = Model(inputs, output, name='NeuMF')
+    model = Model(inputs, output, name=self.modelName)
 
     # model.compile(Adam(1e-3), loss=BinaryCrossentropy(), metrics=[BinaryAccuracy()])
-    model.compile(Adam(1e-3), loss='mean_squared_error', metrics=['mse', 'mae', tf.keras.metrics.FalseNegatives(), tf.keras.metrics.FalsePositives(), tf.keras.metrics.TrueNegatives(), tf.keras.metrics.TruePositives(), BinaryAccuracy()])
+    model.compile(Adam(1e-3), loss='mean_squared_error',
+                  metrics=['mse', 'mae', tf.keras.metrics.FalseNegatives(), tf.keras.metrics.FalsePositives(),
+                           tf.keras.metrics.TrueNegatives(), tf.keras.metrics.TruePositives(), BinaryAccuracy()])
 
     return model

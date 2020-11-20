@@ -62,7 +62,7 @@ class twoTowerModel(tf.keras.Model):
 			#pred = self(info, training = True)
 			#loss = self.compiled_loss(info[self.resKey], pred)
 			usersCaracteristics, itemCaracteristics = self.computeEmb(info)
-			loss = self.task(usersCaracteristics, itemCaracteristics, training = True)
+			loss = self.task(usersCaracteristics, itemCaracteristics, compute_metrics = False, training = True, candidate_ids = info[self.itemKey])
 		
 		#print(self.trainable_variables)
 		gradients = tape.gradient(loss, self.trainable_variables)
@@ -75,7 +75,7 @@ class twoTowerModel(tf.keras.Model):
 	def test_step(self, info):
 		#pred = self(info)
 		usersCaracteristics, itemCaracteristics = self.computeEmb(info)
-		loss = self.task(usersCaracteristics, itemCaracteristics)
+		loss = self.task(usersCaracteristics, itemCaracteristics, candidate_ids = info[self.itemKey])
 		#self.compiled_metrics.update_state(info[self.resKey], pred)
 		metrics = {m.name: m.result() for m in self.metrics}
 		metrics["loss"] = loss
@@ -97,25 +97,26 @@ def splitTrainTest(data, ratio):
 
 
 if __name__ == "__main__":
+	print(sys.argv)
 	learningRate = 0.1
-	optimiser = "Adam"
+	optimiser = "Adagrad"
 	splitRatio = 0.8
 	loss = None
 	filename = r"CleanDatasets\no_0s\binary_MC_global_no0s.csv"
-	epoch = 10
+	epoch = 3
 	embNum = 32
-	batchSize = 80000
+	batchSize = 5000
 	for i in range(len(sys.argv)):
 		if sys.argv[i] == "data":
 			filename = sys.argv[i+1]
 		elif sys.argv[i] == "loss":
 			loss = sys.argv[i+1]
 		elif sys.argv[i] == "epoch":
-			epoch = sys.argv[i+1]
+			epoch = int(sys.argv[i+1])
 		elif sys.argv[i] == "lrate":
-			learningRate = sys.argv[i+1]
+			learningRate = float(sys.argv[i+1])
 		elif sys.argv[i] == "ratio":
-			splitRatio = sys.argv[i+1]
+			splitRatio = float(sys.argv[i+1])
 	
 	#data = movieLensData(1,0,0)
 	data = gfData(filename)
@@ -134,10 +135,12 @@ if __name__ == "__main__":
 	#tf.keras.utils.plot_model(model, expand_nested = True)
 	model.fit(testSetCached, epochs = epoch)
 	print("test")
-	model.evaluate(testSet.batch(batchSize).cache(), return_dict=True)
+	res = model.evaluate(testSet.batch(batchSize).cache(), return_dict=True)
+	with open("../result/twoTowerResult", "a") as f:
+		f.write("learning rate: " + str(learningRate) + ", optimiser: " + optimiser + ", splitRatio: " + str(splitRatio) + ", loss: " + str(loss) + ", filename: " + filename + ", epoch: " + str(epoch) + "nbr embedings: " + str(embNum) + ", batchSize: " + str(batchSize))
+		f.write(str(res))
 	#model.evaluate(testSet.batch(40000), return_dict=True)
-
-
+	#raise Exception
 	
 	
 	

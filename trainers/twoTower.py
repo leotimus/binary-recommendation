@@ -6,6 +6,7 @@ from trainers.loadBinaryMovieLens import *
 from trainers.topKMetrics import *
 import tensorflow_recommenders as tfrs
 import sys
+from getpass import getpass
 
 class TwoTowerModel(tf.keras.Model):
 	def __init__(self, embedDim, nbrItem, nbrUser, userKey, itemKey, usersId, itemsId, eval_batch_size = 8000, loss = None):
@@ -98,9 +99,11 @@ def splitTrainTest(data, ratio):
 def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, batchSize):
 	#Load the files for cross-validation.
 	dataSets = []
+	username = input("username:")
+	psw = getpass()
 	print("Loading files")
 	for filename in filenames:
-		dataSets.append(filename)
+		dataSets.append(gfData(filename, username, psw))
 	
 	print("Loading done.")
 	
@@ -169,7 +172,7 @@ if __name__ == "__main__":
 	optimiser = "Adagrad"
 	splitRatio = 0.8
 	loss = None
-	filename = r"CleanDatasets\no_0s\binary_MC_global_no0s.csv"
+	filename = [r"(NEW)CleanDatasets\TT-NCF\2m(OG)\ds2_OG(2m)_timeDistributed.csv1.csv", r"(NEW)CleanDatasets\TT-NCF\2m(OG)\ds2_OG(2m)_timeDistributed.csv2.csv", r"(NEW)CleanDatasets\TT-NCF\2m(OG)\ds2_OG(2m)_timeDistributed.csv3.csv", r"(NEW)CleanDatasets\TT-NCF\2m(OG)\ds2_OG(2m)_timeDistributed.csv4.csv", r"(NEW)CleanDatasets\TT-NCF\2m(OG)\ds2_OG(2m)_timeDistributed.csv5.csv"]
 	epoch = 3
 	embNum = 32
 	batchSize = 5000

@@ -16,7 +16,6 @@ class TwoTowerModel(tf.keras.Model):
 		self.nbrUser = nbrUser
 		self.userKey = userKey
 		self.itemKey = itemKey
-		self.resKey = resKey
 		#eval_batch_size = 80000
 		#print(nbrItem)
 		

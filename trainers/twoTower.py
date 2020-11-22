@@ -111,8 +111,8 @@ def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, 
 	usersId = []
 	matId = []
 	for dataSet in dataSets:
-		usersId.append(dataSet["usersId"])
-		matId.append(dataSet["materialsId"])
+		usersId.append(pd.Series(dataSet["usersId"]))
+		matId.append(pd.Series(dataSet["materialsId"]))
 	usersId = pd.unique(pd.concat(usersId))
 	matId = pd.unique(pd.concat(matId))
 	

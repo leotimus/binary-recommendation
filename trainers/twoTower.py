@@ -132,7 +132,7 @@ def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, 
 		model.compile(optimizer = getOptimizer(optimiser, learningRate = learningRate))
 		
 		#preparing trainingSet
-		trainSet = data.shuffle(dataSize, reshuffle_each_iteration=False)
+		trainSet = trainSet.shuffle(len(trainSet), reshuffle_each_iteration=False)
 		trainSetCached = trainSet.batch(batchSize).cache()
 		
 		#training

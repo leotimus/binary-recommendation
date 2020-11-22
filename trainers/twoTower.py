@@ -110,18 +110,21 @@ def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, 
 	#getting all unique users id and materials id
 	usersId = []
 	matId = []
+	datas = []
 	for dataSet in dataSets:
 		usersId.append(pd.Series(dataSet["usersId"]))
 		matId.append(pd.Series(dataSet["materialsId"]))
+		datas.append(dataSet["ratings"])
 	usersId = pd.unique(pd.concat(usersId))
 	matId = pd.unique(pd.concat(matId))
+	dataSets = datas
 	
 	#cross-validation
 	res = []
 	for i in range(len(dataSets)):
 		print("cross validation it: " + str(i) + "/" + str(len(dataSets)))
 		#creating test set and training set
-		testData = dataSets.pop(0)["ratings"]
+		testData = dataSets.pop(0)
 		testSet = tf.data.Dataset.from_tensor_slices(dict(testData))
 		trainSet = tf.data.Dataset.from_tensor_slices(dict(pd.concat(dataSets, ignore_index=True)))
 		

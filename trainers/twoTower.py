@@ -3,10 +3,11 @@ import pandas as pd
 from trainers.model_utils import getOptimizer
 import time
 from trainers.loadBinaryMovieLens import *
+from trainers.topKMetrics import *
 import tensorflow_recommenders as tfrs
 import sys
 
-class twoTowerModel(tf.keras.Model):
+class TwoTowerModel(tf.keras.Model):
 	def __init__(self, embedDim, nbrItem, nbrUser, userKey, itemKey, resKey, usersId, itemsId, itemsId_dataset, eval_batch_size = 8000, loss = None):
 		super().__init__(self)
 		self.embedDim = embedDim
@@ -28,7 +29,7 @@ class twoTowerModel(tf.keras.Model):
 		self.userTower = tf.keras.Sequential([self.userTowerIn, self.userTowerOut])
 		self.itemTower = tf.keras.Sequential([self.itemTowerIn, self.itemTowerOut])
 		
-		#self.outputLayer = tf.keras.layers.Dot(axes=1)
+		self.outputLayer = tf.keras.layers.Dot(axes=1)
 		self.task = tfrs.tasks.Retrieval(
 			loss = loss,
 			metrics=tfrs.metrics.FactorizedTopK(
@@ -39,7 +40,7 @@ class twoTowerModel(tf.keras.Model):
 		#self.outputLayer = tf.keras.Sequential(tf.keras.layers.Dense(32, input_shape=(embedDim*2,), activation = "sigmoid"))
 		#self.outputLayer.add(tf.keras.layers.Dense(1, activation = "sigmoid"))
 	
-	def call(self, info, training = False):
+	def call(self, info):
 		"""userInput = self.userTowerIn(info["user_id"])
 		usersCaracteristics = self.userTowerOut(userInput)
 		itemInput = self.itemTowerIn(info["movie_id"])
@@ -50,7 +51,13 @@ class twoTowerModel(tf.keras.Model):
 		#print(itemCaracteristics)
 		#return self.outputLayer(tf.concat([usersCaracteristics, itemCaracteristics], -1))
 		#return tf.keras.activations.sigmoid(self.outputLayer([usersCaracteristics, itemCaracteristics]))
-		return None
+		return self.outputLayer([usersCaracteristics, itemCaracteristics])
+	
+	"""def predict(self, info):
+		#dataframe = pd.DataFrame({self.userKey:[info[0]], self.itemKey:[info[1]]})
+		#dataset = tf.data.Dataset.from_tensor_slices(dict(dataframe))
+		usersCaracteristics = self.userTower(info[0])#dataset.batch(1)[self.userKey])
+		itemCaracteristics = self.itemTower(info[1])#dataset.batch(1)[self.itemKey])"""
 	
 	def computeEmb(self, info):
 		usersCaracteristics = self.userTower(info[self.userKey])
@@ -121,27 +128,27 @@ if __name__ == "__main__":
 	#data = movieLensData(1,0,0)
 	data = gfData(filename)
 	#print(dict(data["ratings"]))
-	data["ratings"] = tf.data.Dataset.from_tensor_slices(dict(data["ratings"]))
-	ratings = data["ratings"]
+	ratings = tf.data.Dataset.from_tensor_slices(dict(data["ratings"]))
 	trainSet, testSet = splitTrainTest(ratings, splitRatio)
-	#model = twoTowerModel(32, data["nbrMovie"], data["nbrUser"], "user_id", "movie_id", "rating", data["usersId"], data["moviesId"], data["ratings"])
-	model = twoTowerModel(embNum, data["nbrMaterial"], data["nbrUser"], "CUSTOMER_ID", "MATERIAL", "is_real", data["usersId"], data["materialsId"], data["ratings"], eval_batch_size = batchSize, loss = loss)
+	#model = TwoTowerModel(embNum, data["nbrMovie"], data["nbrUser"], "user_id", "movie_id", "rating", data["usersId"], data["moviesId"], ratings)
+	model = TwoTowerModel(embNum, data["nbrMaterial"], data["nbrUser"], "CUSTOMER_ID", "MATERIAL", "is_real", data["usersId"], data["materialsId"], ratings, eval_batch_size = batchSize, loss = loss)
 	threshold = 0.5
 	#model.compile(optimizer = getOptimizer("Adam",learningRate = 0.01), metrics=["MAE","MSE",tf.keras.metrics.BinaryAccuracy(threshold = threshold), tf.keras.metrics.TrueNegatives(threshold), tf.keras.metrics.TruePositives(threshold), tf.keras.metrics.FalseNegatives(threshold), tf.keras.metrics.FalsePositives(threshold)])
 	model.compile(optimizer = getOptimizer(optimiser, learningRate = learningRate))
 	
-	testSetCached = trainSet.batch(batchSize).cache()
-	#testSetCached = trainSet.batch(80000)
+	trainSetCached = trainSet.batch(batchSize).cache()
+	#trainSetCached = trainSet.batch(80000)
 	#tf.keras.utils.plot_model(model, expand_nested = True)
-	model.fit(testSetCached, epochs = epoch)
+	model.fit(trainSetCached, epochs = epoch)
 	print("test")
-	res = model.evaluate(testSet.batch(batchSize).cache(), return_dict=True)
-	with open("../result/twoTowerResult", "a") as f:
-		f.write("learning rate: " + str(learningRate) + ", optimiser: " + optimiser + ", splitRatio: " + str(splitRatio) + ", loss: " + str(loss) + ", filename: " + filename + ", epoch: " + str(epoch) + "nbr embedings: " + str(embNum) + ", batchSize: " + str(batchSize))
-		f.write(str(res))
+	#res = model.evaluate(testSet.batch(batchSize).cache(), return_dict=True)
+	#with open("../result/twoTowerResult", "a") as f:
+	#	f.write("learning rate: " + str(learningRate) + ", optimiser: " + optimiser + ", splitRatio: " + str(splitRatio) + ", loss: " + str(loss) + ", filename: " + filename + ", epoch: " + str(epoch) + "nbr embedings: " + str(embNum) + ", batchSize: " + str(batchSize))
+	#	f.write(str(res))
 	#model.evaluate(testSet.batch(40000), return_dict=True)
 	#raise Exception
-	
+	topk = topKRatings(10, model, data["usersId"], data["materialsId"], "two tower")
+	print(topKMetrics(topk, [(str(int(i["CUSTOMER_ID"].numpy())), str(int(i["MATERIAL"].numpy()))) for i in testSet], data["usersId"], data["moviesId"]))
 	
 	
 	

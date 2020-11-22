@@ -8,7 +8,7 @@ import tensorflow_recommenders as tfrs
 import sys
 
 class TwoTowerModel(tf.keras.Model):
-	def __init__(self, embedDim, nbrItem, nbrUser, userKey, itemKey, resKey, usersId, itemsId, itemsId_dataset, eval_batch_size = 8000, loss = None):
+	def __init__(self, embedDim, nbrItem, nbrUser, userKey, itemKey, usersId, itemsId, eval_batch_size = 8000, loss = None):
 		super().__init__(self)
 		self.embedDim = embedDim
 		self.nbrItem = nbrItem
@@ -30,12 +30,7 @@ class TwoTowerModel(tf.keras.Model):
 		self.itemTower = tf.keras.Sequential([self.itemTowerIn, self.itemTowerOut])
 		
 		self.outputLayer = tf.keras.layers.Dot(axes=1)
-		self.task = tfrs.tasks.Retrieval(
-			loss = loss,
-			metrics=tfrs.metrics.FactorizedTopK(
-            		candidates=itemsId_dataset.map(lambda x: x[itemKey]).batch(eval_batch_size).map(self.itemTower)
-			)
-		)
+		self.task = tfrs.tasks.Retrieval(loss = loss)
 		
 		#self.outputLayer = tf.keras.Sequential(tf.keras.layers.Dense(32, input_shape=(embedDim*2,), activation = "sigmoid"))
 		#self.outputLayer.add(tf.keras.layers.Dense(1, activation = "sigmoid"))
@@ -100,7 +95,72 @@ def splitTrainTest(data, ratio):
 	return (train, test)
 	
 
-#def create_model
+def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, batchSize):
+	#Load the files for cross-validation.
+	dataSets = []
+	print("Loading files")
+	for filename in filenames:
+		dataSets.append(filename)
+	
+	print("Loading done.")
+	
+	#getting all unique users id and materials id
+	usersId = []
+	matId = []
+	for dataSet in dataSets:
+		usersId.append(dataSet["usersId"])
+		matId.append(dataSet["materialsId"])
+	usersId = pd.unique(pd.concat(usersId))
+	matId = pd.unique(pd.concat(matId))
+	
+	#cross-validation
+	res = []
+	for i in range(len(dataSets)):
+		print("cross validation it: " + str(i) + "/" + str(len(dataSets)))
+		#creating test set and training set
+		testData = dataSets.pop(0)["ratings"]
+		testSet = tf.data.Dataset.from_tensor_slices(dict(testData))
+		trainSet = tf.data.Dataset.from_tensor_slices(dict(pd.concat(dataSets, ignore_index=True)))
+		
+		#creating model
+		model = TwoTowerModel(embNum, len(matId), len(usersId), "CUSTOMER_ID", "MATERIAL", usersId, matId, eval_batch_size = batchSize, loss = loss)
+		model.compile(optimizer = getOptimizer(optimiser, learningRate = learningRate))
+		
+		#preparing trainingSet
+		trainSet = data.shuffle(dataSize, reshuffle_each_iteration=False)
+		trainSetCached = trainSet.batch(batchSize).cache()
+		
+		#training
+		print("training")
+		model.fit(trainSetCached, epochs = epoch)
+		
+		#testing
+		print("testing")
+		topk = topKRatings(k, model, usersId, matId, "two tower")
+		res.append(topKMetrics(topk, [(str(int(i["CUSTOMER_ID"].numpy())), str(int(i["MATERIAL"].numpy()))) for i in testSet], usersId, matId))
+		print(res[-1])
+		
+		#making ready for next it
+		dataSets.append(testData)
+	
+	#computing average results
+	averageMetrics = {}
+	for metrics in res[0]:
+		averageMetrics[metrics] = 0
+		for itRes in res:
+			averageMetrics[metrics] += itRes[metrics]
+		
+		averageMetrics[metrics] /= len(dataSets)
+	
+	return averageMetrics
+	
+	
+		
+		
+	
+	
+	
+	
 
 
 if __name__ == "__main__":
@@ -113,6 +173,7 @@ if __name__ == "__main__":
 	epoch = 3
 	embNum = 32
 	batchSize = 5000
+	k = 10
 	for i in range(len(sys.argv)):
 		if sys.argv[i] == "data":
 			filename = sys.argv[i+1]
@@ -124,8 +185,19 @@ if __name__ == "__main__":
 			learningRate = float(sys.argv[i+1])
 		elif sys.argv[i] == "ratio":
 			splitRatio = float(sys.argv[i+1])
+		elif sys.argv[i] == "k":
+			k = float(sys.argv[i+1])
 	
-	#data = movieLensData(1,0,0)
+	res = crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, batchSize)
+	print(res)
+	with open("../result/twoTowerResult", "a") as f:
+		f.write("k: " + str(k) + ", learning rate: " + str(learningRate) + ", optimiser: " + optimiser + ", splitRatio: " + str(splitRatio) + ", loss: " + str(loss) + ", filename: " + filename + ", epoch: " + str(epoch) + "nbr embedings: " + str(embNum) + ", batchSize: " + str(batchSize) + "\n")
+		f.write(str(res) + "\n")
+
+
+
+
+	"""#data = movieLensData(1,0,0)
 	data = gfData(filename)
 	#print(dict(data["ratings"]))
 	ratings = tf.data.Dataset.from_tensor_slices(dict(data["ratings"]))
@@ -148,7 +220,9 @@ if __name__ == "__main__":
 	#model.evaluate(testSet.batch(40000), return_dict=True)
 	#raise Exception
 	topk = topKRatings(10, model, data["usersId"], data["materialsId"], "two tower")
-	print(topKMetrics(topk, [(str(int(i["CUSTOMER_ID"].numpy())), str(int(i["MATERIAL"].numpy()))) for i in testSet], data["usersId"], data["moviesId"]))
+	print(topKMetrics(topk, [(str(int(i["CUSTOMER_ID"].numpy())), str(int(i["MATERIAL"].numpy()))) for i in testSet], data["usersId"], data["moviesId"]))"""
+	
+	
 	
 	
 	

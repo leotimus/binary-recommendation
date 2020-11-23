@@ -153,7 +153,7 @@ def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, 
 		topk = {}
 		counter = 0
 		for user in usersId:
-			topk[user] = [(pred[0][counter][j], pred[1][counter][j]) for j in range(len(pred[0][counter]))]
+			topk[user] = [(str(pred[0][counter][j]), str(pred[1][counter][j])) for j in range(len(pred[0][counter]))]
 			counter += 1
 		#print(topk.numpy())
 		res.append(topKMetrics(topk, [(str(i["CUSTOMER_ID"].numpy()), str(i["MATERIAL"].numpy())) for i in testSet], usersId, matId))

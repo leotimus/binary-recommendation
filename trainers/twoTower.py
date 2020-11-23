@@ -57,7 +57,7 @@ class TwoTowerModel(tf.keras.Model):
 	
 	def getTopK(self, users, k):
 		self.streamingLayer(
-					query_embeddings = users.batch(self.eval_batch_size).map(self.userTower), 
+					query_embeddings = self.userTower(users.batch(self.eval_batch_size)), 
 					k = k
 				)
 	

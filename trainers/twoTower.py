@@ -16,7 +16,8 @@ class TwoTowerModel(tf.keras.Model):
 		self.nbrUser = nbrUser
 		self.userKey = userKey
 		self.itemKey = itemKey
-		#eval_batch_size = 80000
+		self.streamingLayer = tfrs.layers.factorized_top_k.Streaming()
+		self.eval_batch_size = eval_batch_size
 		#print(nbrItem)
 		
 		self.userTowerIn = tf.keras.layers.experimental.preprocessing.StringLookup(vocabulary = usersId)
@@ -48,11 +49,17 @@ class TwoTowerModel(tf.keras.Model):
 		#return tf.keras.activations.sigmoid(self.outputLayer([usersCaracteristics, itemCaracteristics]))
 		return self.outputLayer([usersCaracteristics, itemCaracteristics])
 	
-	"""def predict(self, info):
-		#dataframe = pd.DataFrame({self.userKey:[info[0]], self.itemKey:[info[1]]})
-		#dataset = tf.data.Dataset.from_tensor_slices(dict(dataframe))
-		usersCaracteristics = self.userTower(info[0])#dataset.batch(1)[self.userKey])
-		itemCaracteristics = self.itemTower(info[1])#dataset.batch(1)[self.itemKey])"""
+	def setCandidates(self, items):
+		self.streamingLayer.index(
+						candidates = items.batch(self.eval_batch_size).map(self.itemTower),
+						identifiers = items
+					)
+	
+	def getTopK(self, users, k):
+		self.streamingLayer(
+					query_embeddings = users.batch(self.eval_batch_size).map(self.userTower), 
+					k = k
+				)
 	
 	def computeEmb(self, info):
 		usersCaracteristics = self.userTower(info[self.userKey])
@@ -141,7 +148,10 @@ def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, 
 		
 		#testing
 		print("testing")
-		topk = topKRatings(k, model, usersId, matId, "two tower")
+		#topk = topKRatings(k, model, usersId, matId, "two tower")
+		model.setCandidates(tf.data.Dataset.from_tensor_slices(matId))
+		topk = model.getTopK(tf.data.Dataset.from_tensor_slices(usersId), k)
+		print(topk.numpy())
 		res.append(topKMetrics(topk, [(str(int(i["CUSTOMER_ID"].numpy())), str(int(i["MATERIAL"].numpy()))) for i in testSet], usersId, matId))
 		print(res[-1])
 		

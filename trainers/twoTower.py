@@ -143,13 +143,13 @@ def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, 
 		
 		#training
 		print("training")
-		model.fit(trainSetCached, epochs = epoch)
+		#model.fit(trainSetCached, epochs = epoch)
 		
 		#testing
 		print("testing")
 		#topk = topKRatings(k, model, usersId, matId, "two tower")
 		model.setCandidates(tf.data.Dataset.from_tensor_slices(matId), k)
-		topk = model(tf.data.Dataset.from_tensor_slices(usersId))
+		topk = model.predict(tf.data.Dataset.from_tensor_slices(usersId))
 		print(topk.numpy())
 		res.append(topKMetrics(topk, [(str(int(i["CUSTOMER_ID"].numpy())), str(int(i["MATERIAL"].numpy()))) for i in testSet], usersId, matId))
 		print(res[-1])

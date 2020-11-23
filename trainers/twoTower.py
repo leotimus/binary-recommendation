@@ -155,7 +155,7 @@ def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, 
 		counter = 0
 		for user in usersId:
 			print("\rFormating topK: "+str(counter+1)+"/"+str(len(usersId)), end="", flush=True)
-			topk.append(user, [(str(pred[0][counter][j]), str(pred[1][counter][j])) for j in range(len(pred[0][counter]))])
+			topk.append((user, [(str(pred[0][counter][j]), str(pred[1][counter][j])) for j in range(len(pred[0][counter]))]))
 			counter += 1
 		#print(topk.numpy())
 		res.append(topKMetrics(topk, [(str(i["CUSTOMER_ID"].numpy()), str(i["MATERIAL"].numpy())) for i in testSet], usersId, matId))

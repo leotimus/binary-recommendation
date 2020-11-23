@@ -30,7 +30,7 @@ class TwoTowerModel(tf.keras.Model):
 		self.userTower = tf.keras.Sequential([self.userTowerIn, self.userTowerOut])
 		self.itemTower = tf.keras.Sequential([self.itemTowerIn, self.itemTowerOut])
 		
-		self.outputLayer = tf.keras.layers.Dot(axes=1)
+		self.outputLayer = tf.keras.layers.Dot(axes=-1)
 		self.task = tfrs.tasks.Retrieval(loss = loss)
 		
 		#self.outputLayer = tf.keras.Sequential(tf.keras.layers.Dense(32, input_shape=(embedDim*2,), activation = "sigmoid"))

@@ -36,30 +36,29 @@ class TwoTowerModel(tf.keras.Model):
 		#self.outputLayer = tf.keras.Sequential(tf.keras.layers.Dense(32, input_shape=(embedDim*2,), activation = "sigmoid"))
 		#self.outputLayer.add(tf.keras.layers.Dense(1, activation = "sigmoid"))
 	
-	def call(self, info):
-		"""userInput = self.userTowerIn(info["user_id"])
-		usersCaracteristics = self.userTowerOut(userInput)
-		itemInput = self.itemTowerIn(info["movie_id"])
-		itemCaracteristics = self.itemTowerOut(itemInput)"""
+	"""def call(self, info):
 		usersCaracteristics = self.userTower(info[self.userKey])
 		itemCaracteristics = self.itemTower(info[self.itemKey])
-		#print(usersCaracteristics)
-		#print(itemCaracteristics)
 		#return self.outputLayer(tf.concat([usersCaracteristics, itemCaracteristics], -1))
 		#return tf.keras.activations.sigmoid(self.outputLayer([usersCaracteristics, itemCaracteristics]))
-		return self.outputLayer([usersCaracteristics, itemCaracteristics])
+		return self.outputLayer([usersCaracteristics, itemCaracteristics])"""
 	
-	def setCandidates(self, items):
+	def call(self, info):
+		usersCaracteristics = self.userTower(info)
+		return self.streamingLayer(usersCaracteristics)
+	
+	def setCandidates(self, items, k):
+		self.streamingLayer = tfrs.layers.factorized_top_k.Streaming(k = k)
 		self.streamingLayer.index(
 						candidates = items.batch(self.eval_batch_size).map(self.itemTower),
 						identifiers = items
 					)
 	
-	def getTopK(self, users, k):
+	"""def getTopK(self, users, k):
 		self.streamingLayer(
 					query_embeddings = self.userTower(users), 
 					k = k
-				)
+				)"""
 	
 	def computeEmb(self, info):
 		usersCaracteristics = self.userTower(info[self.userKey])
@@ -149,9 +148,8 @@ def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, 
 		#testing
 		print("testing")
 		#topk = topKRatings(k, model, usersId, matId, "two tower")
-		model.setCandidates(tf.data.Dataset.from_tensor_slices(matId))
-		#topk = model.getTopK(tf.data.Dataset.from_tensor_slices(usersId), k)
-		topk = model.getTopK(usersId, k)
+		model.setCandidates(tf.data.Dataset.from_tensor_slices(matId), k)
+		topk = model(tf.data.Dataset.from_tensor_slices(usersId))
 		print(topk.numpy())
 		res.append(topKMetrics(topk, [(str(int(i["CUSTOMER_ID"].numpy())), str(int(i["MATERIAL"].numpy()))) for i in testSet], usersId, matId))
 		print(res[-1])

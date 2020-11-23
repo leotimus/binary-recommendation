@@ -50,7 +50,7 @@ class TwoTowerModel(tf.keras.Model):
 	def setCandidates(self, items, k):
 		self.streamingLayer = tfrs.layers.factorized_top_k.Streaming(k = k)
 		self.streamingLayer.index(
-						candidates = items.batch(self.eval_batch_size).map(self.itemTower),
+						candidates = items.map(self.itemTower),
 						identifiers = items
 					)
 	
@@ -149,7 +149,7 @@ def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, 
 		print("testing")
 		#topk = topKRatings(k, model, usersId, matId, "two tower")
 		model.setCandidates(tf.data.Dataset.from_tensor_slices(matId), k)
-		topk = model.predict(tf.data.Dataset.from_tensor_slices(usersId).batch(batchSize))
+		topk = model.predict(tf.data.Dataset.from_tensor_slices(usersId))
 		print(topk.numpy())
 		res.append(topKMetrics(topk, [(str(int(i["CUSTOMER_ID"].numpy())), str(int(i["MATERIAL"].numpy()))) for i in testSet], usersId, matId))
 		print(res[-1])

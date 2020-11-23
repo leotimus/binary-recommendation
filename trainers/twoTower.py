@@ -148,7 +148,7 @@ def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, 
 		#testing
 		print("testing", flush=True)
 		
-		#topk = topKRatings(k, model, usersId, matId, "two tower")
+		topk = topKRatings(k, model, usersId, matId, "two tower")
 		model.setCandidates(tf.data.Dataset.from_tensor_slices(matId), k)
 		pred = model.predict(usersId)
 		topk = []
@@ -212,7 +212,7 @@ if __name__ == "__main__":
 	res = crossValidation(filename, k, learningRate, optimiser, loss, epoch, embNum, batchSize)
 	print(res)
 	with open("../result/twoTowerResult", "a") as f:
-		f.write("k: " + str(k) + ", learning rate: " + str(learningRate) + ", optimiser: " + optimiser + ", splitRatio: " + str(splitRatio) + ", loss: " + str(loss) + ", filename: " + filename + ", epoch: " + str(epoch) + "nbr embedings: " + str(embNum) + ", batchSize: " + str(batchSize) + "\n")
+		f.write("k: " + str(k) + ", learning rate: " + str(learningRate) + ", optimiser: " + optimiser + ", splitRatio: " + str(splitRatio) + ", loss: " + str(loss) + ", filename: " + str(filename) + ", epoch: " + str(epoch) + "nbr embedings: " + str(embNum) + ", batchSize: " + str(batchSize) + "\n")
 		f.write(str(res) + "\n")
 
 

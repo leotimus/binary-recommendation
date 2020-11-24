@@ -37,9 +37,6 @@ def digest(data_chunks):
     for chunk in data_chunks:
         next_user_id, next_item_id = convert_ids(chunk, user_ids, item_ids, next_user_id, next_item_id)
 
-        chunk_total = chunk.shape[0]
-        chunk_accumulator = 0
-
         total_so_far, average_so_far = calculate_average(chunk, total_so_far, average_so_far)
         
         number_of_chunks_to_eat -= 1
@@ -210,9 +207,9 @@ def get_test_set(test_dataframe):
 if __name__ == "__main__":
     data_chunks = read_csv()
 
+    print("-"*16)
     print("Digesting....")
     user_ids, item_ids, uid_max, iid_max, global_bias = digest(data_chunks)
-    print("-"*16)
     number_of_users = uid_max + 1
     number_of_items = iid_max + 1
 
@@ -225,6 +222,7 @@ if __name__ == "__main__":
     user_bias_vector = np.zeros(number_of_users)
     item_bias_vector = np.zeros(number_of_items)
 
+    print("-"*16)
     print("Training:")
 
     for i in range(0,  EPOCHS):
@@ -234,7 +232,7 @@ if __name__ == "__main__":
         data_chunks = pd.read_csv(TRAIN_FILE_PATH, chunksize=CHUNK_SIZE)
 
         err = mean_square_error(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
-        print (f"::::EPOCH {i}::::      Error: {err}")
+        print (f"::::EPOCH {i:=5}::::      Error: {err}")
     
     print("-"*16)
     print("Evaluating...")

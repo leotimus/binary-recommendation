@@ -1,4 +1,4 @@
-import sys, os, json
+import sys, os
 import pandas as pd
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -9,27 +9,26 @@ from sklearn.model_selection import train_test_split
 class RModel:
   CUSTOMER_ID = 'CUSTOMER_ID'
   PRODUCT_ID = 'PRODUCT_ID'
+  # METRICS = ['mse', 'mae', 'false_negatives', 'false_positives', 'true_negatives', 'true_positives', 'binary_accuracy']
+  METRICS = ['mse', 'mae', 'binary_accuracy']
 
-  def __init__(self, modelName):
-    self.modelName = modelName
-    os.makedirs('export/{}'.format(self.modelName), exist_ok=True)
-    os.makedirs('checkpoints/{}'.format(self.modelName), exist_ok=True)
+  def __init__(self, moduleName):
+    self.modelName = moduleName
+
     self.modelStructurePath = 'export/{}/model.png'.format(self.modelName)
     self.trainResultPlotPath = 'export/{}/plot.png'.format(self.modelName)
     self.checkpointPath = 'checkpoints/{}/cp'.format(self.modelName)
+    self.modelProducts = 'checkpoints/{}/modelData/products'.format(self.modelName)
+    self.modelUsers = 'checkpoints/{}/modelData/users'.format(self.modelName)
+
+    os.makedirs('export/{}'.format(self.modelName), exist_ok=True)
+    os.makedirs('checkpoints/{}'.format(self.modelName), exist_ok=True)
+    os.makedirs('checkpoints/{}/modelData'.format(self.modelName), exist_ok=True)
+
     self.num_factor = 32
     self.epochs = 10
     self.batchSize = 1024 * 16
-    self._test = None # TODO remove
-    self._model = None # TODO remove
-
-  @property
-  def test(self):
-    return self._test
-
-  @test.setter
-  def test(self, value):
-    self._test = value
+    self._model = None
 
   @property
   def model(self):
@@ -99,14 +98,23 @@ class RModel:
       print('Could not plot model in dot format:', sys.exc_info()[0])
     self._model.summary()
 
-    train, self._test = train_test_split(transactionDf, test_size=0.2)
+    train, test = train_test_split(transactionDf, test_size=0.2)
+
+    # save sample dataframe for later prediction TODO more??
+    pickle = test.copy()
+
+    products = test.PRODUCT_ID.unique().tolist()
+    users = test.CUSTOMER_ID.unique().tolist()
+    pd.DataFrame({self.PRODUCT_ID: products}).to_pickle(self.modelProducts)
+    pd.DataFrame({self.CUSTOMER_ID: users}).to_pickle(self.modelUsers)
+
     print(len(train), 'train examples')
-    print(len(self._test), 'test examples')
+    print(len(test), 'test examples')
 
     # train data set
     trainDataset = self.bootstrapDataset(train)
     # split validation dataset
-    testDataset = self.bootstrapDataset(self._test, shuffle=False)
+    testDataset = self.bootstrapDataset(test, shuffle=False)
 
     history = self._model.fit(trainDataset, validation_data=testDataset, epochs=self.epochs)
     tf.saved_model.save(self._model, self.checkpointPath)
@@ -116,19 +124,20 @@ class RModel:
     _, val = train_test_split(train, test_size=0.2)
     valDataset = self.bootstrapDataset(val, shuffle=False)
 
-    returnMetrics = list(self._model.evaluate(valDataset))
-    print("Accuracy: ", returnMetrics)
+    evaluatedMetric = list(self._model.evaluate(valDataset))
+    return {'result': 'completed', 'metrics': evaluatedMetric}
 
+  def getPredictDataSet(self, customerId):
+    predictionDf = pd.read_pickle(self.modelProducts)
+    predictionDf[self.CUSTOMER_ID] = customerId
+    return self.bootstrapDataset(predictionDf, shuffle=False)
 
-  def getPredictDataSet(self):
-    print("No implementation")
-    return None
+  def restoreFromLatestCheckPoint(self):
+    self._model = tf.keras.models.load_model(self.checkpointPath)
 
-  def predictForUser(self, customerId, numberOfItem = 5):
+  def predictForUser(self, customerId, numberOfItem=5):
 
-    predictDataSet = self.bootstrapDataset(self._test, shuffle=False)
-    # savedModel = tf.keras.models.load_model(self.checkpointPath)
-
+    predictDataSet = self.getPredictDataSet(customerId)
     predictions = self._model.predict(predictDataSet)
 
     i = 0
@@ -138,15 +147,12 @@ class RModel:
       items = features['item']
       j = 0
       for u in users:
-        if int(u) == int(customerId):
+        if u == customerId:
           extractFeatures[str(items[j])] = str(predictions[i][0])
         j = j + 1
         i = i + 1
 
-    # rankedItems = sorted(extractFeatures.items(), key=lambda x: x[1], reverse=True)[:numberOfItem]
-    result = sorted(extractFeatures.items(), key=lambda x: x[1], reverse=True)
-    print("predictions shape:", result)
-    return json.dumps(result)
+    return sorted(extractFeatures.items(), key=lambda x: x[1], reverse=True)[:numberOfItem]
 
   def getPredictableUsers(self):
-    return json.dumps(self.test.CUSTOMER_ID.unique().tolist())
+    return pd.read_pickle(self.modelUsers).CUSTOMER_ID.tolist()

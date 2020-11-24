@@ -1,10 +1,5 @@
-import tensorflow as tf
-
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.metrics import BinaryAccuracy
-
-from tensorflow.keras.layers import Input, Concatenate
-from tensorflow.keras.layers import Dense, Embedding, Dropout, BatchNormalization, Dot
+from tensorflow.keras.layers import Input, Concatenate, Dense, Embedding, Dropout, BatchNormalization, Dot
 from tensorflow.keras.models import Model
 
 from src.models.RModel import RModel
@@ -17,6 +12,9 @@ CP_PATH = 'checkpoints/NeuMF02/cp'
 
 
 class NeuMFModel(RModel):
+
+  def __init__(self):
+    super().__init__('NeuMFModel')
 
   def buildModel(self, numUser, numItem, numFactor):
     userId = Input(shape=(), name='user')
@@ -48,14 +46,12 @@ class NeuMFModel(RModel):
     combine = Concatenate()([hidden3MLP, predMF])
 
     # Final prediction
-    output = Dense(1, activation='sigmoid')(combine)  # activation='sigmoid'
+    output = Dense(1, activation='sigmoid')(combine)
 
     inputs = [userId, itemId]
     model = Model(inputs, output, name=self.modelName)
 
-    # model.compile(Adam(1e-3), loss=BinaryCrossentropy(), metrics=[BinaryAccuracy()])
     model.compile(Adam(1e-3), loss='mean_squared_error',
-                  metrics=['mse', 'mae', tf.keras.metrics.FalseNegatives(), tf.keras.metrics.FalsePositives(),
-                           tf.keras.metrics.TrueNegatives(), tf.keras.metrics.TruePositives(), BinaryAccuracy()])
+                  metrics=RModel.METRICS)
 
     return model

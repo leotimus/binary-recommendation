@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
 import math
+import topKMetrics as topk
 
-CHUNK_SIZE = 10E4
+CHUNK_SIZE = 1E4
 NUMBER_OF_CHUNKS_TO_EAT = 10
 EPOCHS = 5
 USER_ID_COLUMN = "user_id"
@@ -13,7 +14,8 @@ REGULARIZATION = 0.01
 
 NUMBER_OF_FACTORS = 5
 
-FILE_PATH = r"data/ml-100k/all.csv"
+TRAIN_FILE_PATH = r"data/ml-100k/all.csv"
+TEST_FILE_PATH = r"data/ml-100k/all.csv"
 VERBOSE = False
 PRINT_EVERY = 5000
 
@@ -81,6 +83,21 @@ def calculate_average(chunk, total_so_far, average_so_far):
 
     return total_so_far, average_so_far
 
+class svd_prediction_doer:
+    def __init__(self, user_ids, item_ids, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias):
+        self.user_matrix = user_matrix
+        self.item_matrix = item_matrix
+        self.user_bias_vector = user_bias_vector
+        self.item_bias_vector = item_bias_vector
+        self.global_bias = global_bias
+        self.user_ids = user_ids
+        self.item_ids = item_ids
+
+    def predict(self, weird_array):
+        user = self.user_ids[weird_array[0][0]]
+        item = self.item_ids[weird_array[1][0]]
+        return predict(user, item, self.user_matrix, self.item_matrix, self.user_bias_vector, self.item_bias_vector, self.global_bias)
+         
 def predict(user, item, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias):
     item_vector = item_matrix[item, :]
     user_vector = user_matrix[user, :]
@@ -182,13 +199,20 @@ def recommend(user_vector, item_matrix, k):
     return result
 
 def read_csv():
-    return pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE, usecols=[USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN])
+    return pd.read_csv(TRAIN_FILE_PATH, chunksize=CHUNK_SIZE, usecols=[USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN])
 
+def get_test_set(test_dataframe):
+	result = set()
+	for _, row in test_dataframe.iterrows():
+		result.add((row[USER_ID_COLUMN], row[ITEM_ID_COLUMN]))
+	return result
+    
 if __name__ == "__main__":
     data_chunks = read_csv()
 
-    print("Digesting....\n----------------")
+    print("Digesting....")
     user_ids, item_ids, uid_max, iid_max, global_bias = digest(data_chunks)
+    print("-"*16)
     number_of_users = uid_max + 1
     number_of_items = iid_max + 1
 
@@ -207,9 +231,22 @@ if __name__ == "__main__":
         data_chunks = read_csv()
         fit_model(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
 
-        data_chunks = pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE)
+        data_chunks = pd.read_csv(TRAIN_FILE_PATH, chunksize=CHUNK_SIZE)
 
         err = mean_square_error(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
         print (f"::::EPOCH {i}::::      Error: {err}")
-        
     
+    print("-"*16)
+    print("Evaluating...")
+    actual_user_ids = user_ids.keys() # The reader is asked to recall that user_ids is a dict that maps the actual ids to our own made-up sequential integer ids
+    actual_item_ids = item_ids.keys()
+
+    print("Reading test data.")
+    test_dataframe = pd.read_csv(TEST_FILE_PATH, usecols=[USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN])
+    test_set = get_test_set(test_dataframe)
+
+    print("Calculating top-k results")
+    prediction_doer = svd_prediction_doer(user_ids, item_ids, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias)
+    top_10_ratings = topk.topKRatings(10, prediction_doer, actual_user_ids, actual_item_ids, mtype="svd")
+    results = topk.topKMetrics(top_10_ratings, test_set, actual_user_ids, actual_item_ids)
+    print(results)

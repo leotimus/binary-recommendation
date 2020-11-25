@@ -11,16 +11,37 @@ NUMBER_OF_FACTORS = 5
 VERBOSE = False
 PRINT_EVERY = 5000
 
+GRUNDFOS = True
+
 # The data is expected in chunks, either in separate files or in a single
 # file that pandas will then split to the size specified. 
 # NB: The NUMBER_OF_CHUNKS_TO_EAT is for training. Another chunk after that
 # should be reserved for testing.
-FILE_PATH = r"data/ml-100k/all.csv"
-CHUNK_SIZE = 2E2 
-NUMBER_OF_CHUNKS_TO_EAT = 4
-USER_ID_COLUMN = "user_id"
-ITEM_ID_COLUMN = "item_id"
-RATING_COLUMN = "rating"
+if not GRUNDFOS:
+    FILE_PATH = r"data/ml-100k/all.csv"
+    CHUNK_MODE = "single-file" # Either "single-file" or "multi-file"
+    CHUNK_SIZE = 2E4
+    NUMBER_OF_CHUNKS_TO_EAT = 4
+    USER_ID_COLUMN = "user_id"
+    ITEM_ID_COLUMN = "item_id"
+    RATING_COLUMN = "rating"
+
+    TRANSACTION_COUNT_COLUMN = TRANSACTION_COUNT_SCALE = QUANTITY_SUM_COLUMN = QUANTITY_SUM_SCALE = None
+else:
+    # Grundfos Data columns: CUSTOMER_ID,PRODUCT_ID,MATERIAL,TRANSACTION_COUNT,QUANTITY_SUM,FIRST_PURCHASE,LAST_PURCHASE,TIME_DIFF_DAYS
+    FILE_PATH = r"/run/user/1000/gvfs/smb-share:server=cs.aau.dk,share=fileshares/IT703e20/(NEW)CleanDatasets/SVD/2m(OG)/ds2_OG(2m)_timeDistributed_{0}.csv"
+    CHUNK_MODE = "multi-file" # Either "single-file" or "multi-file"}.csv
+    CHUNK_SIZE = None
+    NUMBER_OF_CHUNKS_TO_EAT = 4
+    USER_ID_COLUMN = "CUSTOMER_ID"
+    ITEM_ID_COLUMN = "PRODUCT_ID"
+    RATING_COLUMN = None
+
+    TRANSACTION_COUNT_COLUMN = "TRANSACTION_COUNT"
+    TRANSACTION_COUNT_SCALE = 1
+
+    QUANTITY_SUM_COLUMN = "QUANTITY_SUM"
+    QUANTITY_SUM_SCALE = 0.2
 
 def print_verbose(message):
     if VERBOSE:

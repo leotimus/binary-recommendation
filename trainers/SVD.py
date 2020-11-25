@@ -3,13 +3,13 @@ import pandas as pd
 import math
 import topKMetrics as topk
 
-EPOCHS = 5
-LEARNING_RATE = 0.02
+EPOCHS = 20
+LEARNING_RATE = 0.01
 REGULARIZATION = 0.01
-NUMBER_OF_FACTORS = 5
+NUMBER_OF_FACTORS = 40
 
-VERBOSE = False
-PRINT_EVERY = 5000
+VERBOSE = True
+PRINT_EVERY = 25000
 
 GRUNDFOS = True
 

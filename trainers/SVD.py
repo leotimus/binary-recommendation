@@ -3,21 +3,24 @@ import pandas as pd
 import math
 import topKMetrics as topk
 
-CHUNK_SIZE = 1E4
-NUMBER_OF_CHUNKS_TO_EAT = 10
 EPOCHS = 5
+LEARNING_RATE = 0.02
+REGULARIZATION = 0.01
+NUMBER_OF_FACTORS = 5
+
+VERBOSE = False
+PRINT_EVERY = 5000
+
+# The data is expected in chunks, either in separate files or in a single
+# file that pandas will then split to the size specified. 
+# NB: The NUMBER_OF_CHUNKS_TO_EAT is for training. Another chunk after that
+# should be reserved for testing.
+FILE_PATH = r"data/ml-100k/all.csv"
+CHUNK_SIZE = 2E2 
+NUMBER_OF_CHUNKS_TO_EAT = 4
 USER_ID_COLUMN = "user_id"
 ITEM_ID_COLUMN = "item_id"
 RATING_COLUMN = "rating"
-LEARNING_RATE = 0.02
-REGULARIZATION = 0.01
-
-NUMBER_OF_FACTORS = 5
-
-TRAIN_FILE_PATH = r"data/ml-100k/all.csv"
-TEST_FILE_PATH = r"data/ml-100k/all.csv"
-VERBOSE = False
-PRINT_EVERY = 5000
 
 def print_verbose(message):
     if VERBOSE:
@@ -240,7 +243,16 @@ if __name__ == "__main__":
     actual_item_ids = item_ids.keys()
 
     print("Reading test data.")
-    test_dataframe = pd.read_csv(TEST_FILE_PATH, usecols=[USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN])
+    data_chunks = read_csv()
+    number_of_chunks_to_eat = NUMBER_OF_CHUNKS_TO_EAT
+    # Be sure we are at the very last chunk
+    for _ in data_chunks:
+        number_of_chunks_to_eat -= 1
+        if number_of_chunks_to_eat <= 0:
+            break
+
+    test_dataframe = next(data_chunks) # If you get a StopIteration exception on this line, you forgot to reserve a last chunk for testing.
+
     test_set = get_test_set(test_dataframe)
 
     print("Calculating top-k results")

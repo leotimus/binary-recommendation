@@ -90,12 +90,12 @@ def calculate_average(chunk, total_so_far, average_so_far):
 
     for index, row in chunk.iterrows():
         
-        rating = row[RATING_COLUMN]
+        rating = get_rating(row)
 
         chunk_accumulator += rating
 
         if index%PRINT_EVERY == 0:
-            print_verbose(f"calculating global average... at index: {index} average so far is {average_so_far}")
+            print_verbose(f"calculating global average... at index: {index}")
     
     chunk_average = chunk_accumulator / chunk_total
 
@@ -139,7 +139,7 @@ def  fit_model(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bia
             item_vector = item_matrix[item, :]
             user_vector = user_matrix[user, :]
 
-            error = row[RATING_COLUMN] - predict(user, item, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias)
+            error = get_rating(row) - predict(user, item, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias)
 
             item_vector = item_vector + LEARNING_RATE * (error * user_vector - REGULARIZATION * item_vector)
             user_vector = user_vector + LEARNING_RATE * (error * item_vector - REGULARIZATION * user_vector)
@@ -168,7 +168,7 @@ def  mean_generic_error(generic, data_chunks, user_matrix, item_matrix, user_bia
             user = user_ids[row[USER_ID_COLUMN]]
             item = item_ids[row[ITEM_ID_COLUMN]]
 
-            error = row[RATING_COLUMN] - predict(user, item, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias)
+            error = get_rating(row) - predict(user, item, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias)
             
             accumulator += generic(error)
             count += 1
@@ -187,6 +187,14 @@ def mean_absolute_error(data_chunks, user_matrix, item_matrix, user_bias_vector,
 
 def mean_square_error(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids):
     return mean_generic_error(lambda x: x**2, data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
+
+def get_rating(row):
+    if RATING_COLUMN!=None:
+        return row[RATING_COLUMN]
+    else:
+        return \
+         TRANSACTION_COUNT_SCALE * math.sqrt(row[TRANSACTION_COUNT_COLUMN]) +\
+         QUANTITY_SUM_SCALE * math.sqrt(row[QUANTITY_SUM_COLUMN])
 
 class rating_prediction:
     index = 0
@@ -219,8 +227,33 @@ def recommend(user_vector, item_matrix, k):
     
     return result
 
+class multifile_chunk_reader:
+    def __init__(self, file_path, columns):
+        self.file_path = file_path
+        self.columns = columns
+    
+    def __iter__(self):
+        self.next_chunk = 1
+        return self
+
+    def __next__(self):
+        file_path = self.file_path.format(self.next_chunk)
+        try:
+            chunk = pd.read_csv(file_path, usecols=self.columns)
+        except FileNotFoundError:
+            raise StopIteration
+        self.next_chunk += 1
+        return chunk
+
 def read_csv():
-    return pd.read_csv(TRAIN_FILE_PATH, chunksize=CHUNK_SIZE, usecols=[USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN])
+    columns = list(filter(lambda x: x!=None,    # Make a list of all the COLUMN variables that aren't = None.
+        [USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN, 
+            TRANSACTION_COUNT_COLUMN, QUANTITY_SUM_COLUMN]))
+
+    if CHUNK_MODE == "single-file":
+        return pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE, usecols=columns)
+    else:
+        return multifile_chunk_reader(FILE_PATH, columns)
 
 def get_test_set(test_dataframe):
 	result = set()
@@ -239,6 +272,8 @@ if __name__ == "__main__":
 
     data_chunks = read_csv()
 
+    print(f"number of users: {number_of_users}")
+    print(f"number of items: {number_of_items}")
     print(f"global bias: {global_bias}")
     
     user_matrix = np.random.random((number_of_users, NUMBER_OF_FACTORS))
@@ -253,10 +288,10 @@ if __name__ == "__main__":
         data_chunks = read_csv()
         fit_model(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
 
-        data_chunks = pd.read_csv(TRAIN_FILE_PATH, chunksize=CHUNK_SIZE)
+        data_chunks = read_csv()
 
         err = mean_square_error(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
-        print (f"::::EPOCH {i:=5}::::      Error: {err}")
+        print (f"::::EPOCH {i:=3}::::      Error: {err}")
     
     print("-"*16)
     print("Evaluating...")

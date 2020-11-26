@@ -41,10 +41,12 @@ else:
     RATING_COLUMN = None
 
     TRANSACTION_COUNT_COLUMN = "TRANSACTION_COUNT"
-    TRANSACTION_COUNT_SCALE = 1
+    TRANSACTION_COUNT_SCALE = 0.6
+    TRANSACTION_COUNT_QUINTILES = (1, 2, 4)
 
     QUANTITY_SUM_COLUMN = "QUANTITY_SUM"
-    QUANTITY_SUM_SCALE = 0.2
+    QUANTITY_SUM_SCALE = 0.4
+    QUANTITY_SUM_QUINTILES = (1, 1, 2)
 
 def print_verbose(message):
     if VERBOSE:
@@ -196,8 +198,15 @@ def get_rating(row):
         return row[RATING_COLUMN]
     else:
         return \
-         TRANSACTION_COUNT_SCALE * math.sqrt(row[TRANSACTION_COUNT_COLUMN]) +\
-         QUANTITY_SUM_SCALE * math.sqrt(row[QUANTITY_SUM_COLUMN])
+         TRANSACTION_COUNT_SCALE * place_in_quintile(row[TRANSACTION_COUNT_COLUMN], TRANSACTION_COUNT_QUINTILES) +\
+         QUANTITY_SUM_SCALE * place_in_quintile(row[QUANTITY_SUM_COLUMN], QUANTITY_SUM_QUINTILES)
+
+def place_in_quintile(value, quintiles):
+    q1, median, q3 = quintiles
+    if value > q3: return 4
+    elif value > median: return 3
+    elif value > q1: return 2
+    else: return 1
 
 class rating_prediction:
     index = 0

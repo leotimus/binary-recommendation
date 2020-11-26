@@ -1,7 +1,10 @@
 import numpy as np
 import pandas as pd
 import math
-import topKMetrics as topk
+import trainers.topKMetrics as topk
+import smbclient as smbc
+from src.AAUfilename import getAAUfilename
+from getpass import getpass
 
 EPOCHS = 20
 LEARNING_RATE = 0.01
@@ -29,7 +32,7 @@ if not GRUNDFOS:
     TRANSACTION_COUNT_COLUMN = TRANSACTION_COUNT_SCALE = QUANTITY_SUM_COLUMN = QUANTITY_SUM_SCALE = None
 else:
     # Grundfos Data columns: CUSTOMER_ID,PRODUCT_ID,MATERIAL,TRANSACTION_COUNT,QUANTITY_SUM,FIRST_PURCHASE,LAST_PURCHASE,TIME_DIFF_DAYS
-    FILE_PATH = r"/run/user/1000/gvfs/smb-share:server=cs.aau.dk,share=fileshares/IT703e20/(NEW)CleanDatasets/SVD/2m(OG)/ds2_OG(2m)_timeDistributed_{0}.csv"
+    FILE_PATH = r"(NEW)CleanDatasets/SVD/2m(OG)/ds2_OG(2m)_timeDistributed_{0}.csv"
     CHUNK_MODE = "multi-file" # Either "single-file" or "multi-file"}.csv
     CHUNK_SIZE = None
     NUMBER_OF_CHUNKS_TO_EAT = 4
@@ -227,10 +230,11 @@ def recommend(user_vector, item_matrix, k):
     
     return result
 
-class multifile_chunk_reader:
-    def __init__(self, file_path, columns):
+class grundfos_network_drive_files:
+    def __init__(self, file_path, credentials, columns):
         self.file_path = file_path
         self.columns = columns
+        self.username, self.password = credentials
     
     def __iter__(self):
         self.next_chunk = 1
@@ -238,22 +242,22 @@ class multifile_chunk_reader:
 
     def __next__(self):
         file_path = self.file_path.format(self.next_chunk)
+        network_path = getAAUfilename(file_path)
+        
         try:
-            chunk = pd.read_csv(file_path, usecols=self.columns)
+            with smbc.open_file(network_path, mode="r", username=self.username, password=self.password) as f:
+                chunk = pd.read_csv(f, usecols=self.columns)
         except FileNotFoundError:
             raise StopIteration
+
         self.next_chunk += 1
         return chunk
 
-def read_csv():
-    columns = list(filter(lambda x: x!=None,    # Make a list of all the COLUMN variables that aren't = None.
-        [USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN, 
-            TRANSACTION_COUNT_COLUMN, QUANTITY_SUM_COLUMN]))
-
-    if CHUNK_MODE == "single-file":
-        return pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE, usecols=columns)
+def read_csv(credentials):
+    if GRUNDFOS:
+        return grundfos_network_drive_files(FILE_PATH, credentials, [USER_ID_COLUMN, ITEM_ID_COLUMN, TRANSACTION_COUNT_COLUMN, QUANTITY_SUM_COLUMN])
     else:
-        return multifile_chunk_reader(FILE_PATH, columns)
+        return pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE, usecols=[USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN])
 
 def get_test_set(test_dataframe):
 	result = set()
@@ -262,7 +266,13 @@ def get_test_set(test_dataframe):
 	return result
     
 if __name__ == "__main__":
-    data_chunks = read_csv()
+    credentials = (None, None)
+    if GRUNDFOS:
+        username = input("Username:")
+        password = getpass()
+        credentials = (username, password)
+
+    data_chunks = read_csv(credentials)
 
     print("-"*16)
     print("Digesting....")
@@ -270,7 +280,7 @@ if __name__ == "__main__":
     number_of_users = uid_max + 1
     number_of_items = iid_max + 1
 
-    data_chunks = read_csv()
+    data_chunks = read_csv(credentials)
 
     print(f"number of users: {number_of_users}")
     print(f"number of items: {number_of_items}")
@@ -285,10 +295,10 @@ if __name__ == "__main__":
     print("Training:")
 
     for i in range(0,  EPOCHS):
-        data_chunks = read_csv()
+        data_chunks = read_csv(credentials)
         fit_model(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
 
-        data_chunks = read_csv()
+        data_chunks = read_csv(credentials)
 
         err = mean_square_error(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
         print (f"::::EPOCH {i:=3}::::      Error: {err}")
@@ -299,7 +309,7 @@ if __name__ == "__main__":
     actual_item_ids = item_ids.keys()
 
     print("Reading test data.")
-    data_chunks = read_csv()
+    data_chunks = read_csv(credentials)
     number_of_chunks_to_eat = NUMBER_OF_CHUNKS_TO_EAT
     # Be sure we are at the very last chunk
     for _ in data_chunks:

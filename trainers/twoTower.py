@@ -127,7 +127,7 @@ def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, 
 	#cross-validation
 	res = []
 	for i in range(len(dataSets)):
-		print("cross validation it: " + str(i) + "/" + str(len(dataSets)))
+		print("cross validation it: " + str(i+1) + "/" + str(len(dataSets)))
 		#creating test set and training set
 		testData = dataSets.pop(0)
 		testSet = tf.data.Dataset.from_tensor_slices(dict(testData))
@@ -154,12 +154,13 @@ def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, 
 		topk = []
 		counter = 0
 		for user in tf.data.Dataset.from_tensor_slices(usersId):
-			print("\rFormating topK: "+str(counter+1)+"/"+str(len(usersId)), end="", flush=True)
+			print("\rFormating topK: "+str(counter+1)+"/"+str(len(usersId)), end="")
 			topk.append((str(user.numpy()), [(pred[0][counter][j], str(pred[1][counter][j])) for j in range(len(pred[0][counter]))]))
 			counter += 1
+		print("", flush=True)
 		#print(topk.numpy())
 		res.append(topKMetrics(topk, [(str(i["CUSTOMER_ID"].numpy()), str(i["MATERIAL"].numpy())) for i in testSet], usersId, matId))
-		print(res[-1])
+		print("Metrics:",res[-1],flush=True)
 		
 		#making ready for next it
 		dataSets.append(testData)
@@ -190,9 +191,9 @@ if __name__ == "__main__":
 	optimiser = "Adagrad"
 	splitRatio = 0.8
 	loss = None
-	filename = [r"(NEW)CleanDatasets\TT-NCF\2m(OG)\ds2_OG(2m)_timeDistributed.csv1.csv", r"(NEW)CleanDatasets\TT-NCF\2m(OG)\ds2_OG(2m)_timeDistributed.csv2.csv", r"(NEW)CleanDatasets\TT-NCF\2m(OG)\ds2_OG(2m)_timeDistributed.csv3.csv", r"(NEW)CleanDatasets\TT-NCF\2m(OG)\ds2_OG(2m)_timeDistributed.csv4.csv", r"(NEW)CleanDatasets\TT-NCF\2m(OG)\ds2_OG(2m)_timeDistributed.csv5.csv"]
+	filename = [r"(NEW)CleanDatasets\TT\2m(OG)\ds2_OG(2m)_timeDistributed_1.csv", r"(NEW)CleanDatasets\TT\2m(OG)\ds2_OG(2m)_timeDistributed_2.csv", r"(NEW)CleanDatasets\TT\2m(OG)\ds2_OG(2m)_timeDistributed_3.csv", r"(NEW)CleanDatasets\TT\2m(OG)\ds2_OG(2m)_timeDistributed_4.csv", r"(NEW)CleanDatasets\TT\2m(OG)\ds2_OG(2m)_timeDistributed_5.csv"]
 	epoch = 3
-	embNum = 32
+	embNum = 300
 	batchSize = 5000
 	k = 10
 	for i in range(len(sys.argv)):
@@ -208,13 +209,16 @@ if __name__ == "__main__":
 			splitRatio = float(sys.argv[i+1])
 		elif sys.argv[i] == "k":
 			k = float(sys.argv[i+1])
+		elif sys.argv[i] == "opti":
+			optimiser = sys.argv[i+1]
 	
 	res = crossValidation(filename, k, learningRate, optimiser, loss, epoch, embNum, batchSize)
-	print(res)
+	print("Average metrics:", res, flush=True)
 	with open("../result/twoTowerResult", "a") as f:
 		f.write("k: " + str(k) + ", learning rate: " + str(learningRate) + ", optimiser: " + optimiser + ", splitRatio: " + str(splitRatio) + ", loss: " + str(loss) + ", filename: " + str(filename) + ", epoch: " + str(epoch) + "nbr embedings: " + str(embNum) + ", batchSize: " + str(batchSize) + "\n")
 		f.write(str(res) + "\n")
-
+	print("Done",flush=True)
+	raise Exception
 
 
 

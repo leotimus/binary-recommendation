@@ -11,6 +11,7 @@ LEARNING_RATE = 0.01
 REGULARIZATION = 0.01
 NUMBER_OF_FACTORS = 40
 
+EPOCH_ERROR_CALCULATION_FREQUENCY = 5
 VERBOSE = True
 PRINT_EVERY = 25000
 
@@ -309,8 +310,11 @@ if __name__ == "__main__":
 
         data_chunks = read_csv(credentials)
 
-        err = mean_square_error(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
-        print (f"::::EPOCH {i:=3}::::      Error: {err}")
+        if i%EPOCH_ERROR_CALCULATION_FREQUENCY==0:
+            err = mean_square_error(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
+            print (f"::::EPOCH {i:=3}::::      MSE: {err}")
+        else:
+            print (f"::::EPOCH {i:=3}::::")
     
     print("-"*16)
     print("Evaluating...")

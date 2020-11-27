@@ -3,6 +3,13 @@ import pandas as pd
 from trainers.model_utils import getOptimizer
 import time
 from trainers.loadBinaryMovieLens import *
+import psutil
+
+
+from trainers.topKMetrics import *
+import tensorflow_recommenders as tfrs
+import sys
+from getpass import getpass
 
 class twoTowerModel(tf.keras.Model):
 	def __init__(self, embedDim, nbrItem, nbrUser, userKey, itemKey, resKey, usersId, itemsId):
@@ -46,6 +53,7 @@ class twoTowerModel(tf.keras.Model):
 			loss = self.compiled_loss(info[self.resKey], pred)
 		
 		#print(self.trainable_variables)
+		psutil.cpu_percent()
 		gradients = tape.gradient(loss, self.trainable_variables)
 		self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
 		self.compiled_metrics.update_state(info[self.resKey], pred)
@@ -71,6 +79,13 @@ def splitTrainTest(data, ratio):
 #def create_model
 
 
+
+
+
+
+
+
+
 if __name__ == "__main__":
 	#data = movieLensData(1,0,0.1)
 	data = gfData()
@@ -90,7 +105,7 @@ if __name__ == "__main__":
 	print("test")
 	model.evaluate(testSet.batch(40000).cache(), return_dict=True)
 	#model.evaluate(testSet.batch(40000), return_dict=True)
-	
+
 	
 	
 	

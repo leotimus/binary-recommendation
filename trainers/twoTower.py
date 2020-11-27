@@ -7,6 +7,7 @@ from trainers.topKMetrics import *
 import tensorflow_recommenders as tfrs
 import sys
 from getpass import getpass
+import psutil
 
 class TwoTowerModel(tf.keras.Model):
 	def __init__(self, embedDim, nbrItem, nbrUser, userKey, itemKey, usersId, itemsId, eval_batch_size = 8000, loss = None):
@@ -71,7 +72,8 @@ class TwoTowerModel(tf.keras.Model):
 			#loss = self.compiled_loss(info[self.resKey], pred)
 			usersCaracteristics, itemCaracteristics = self.computeEmb(info)
 			loss = self.task(usersCaracteristics, itemCaracteristics, compute_metrics = False, training = True, candidate_ids = info[self.itemKey])
-		
+
+		psutil.cpu_percent()
 		#print(self.trainable_variables)
 		gradients = tape.gradient(loss, self.trainable_variables)
 		self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))

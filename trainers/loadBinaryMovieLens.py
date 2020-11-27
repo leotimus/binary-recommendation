@@ -1,7 +1,6 @@
 import pandas as pd
 import random as rd
 from src.AAUfilename import *
-from getpass import getpass
 import smbclient as smbc
 
 
@@ -23,7 +22,7 @@ def movieLensData(ratedVal, unratedVal, zeroProb):
 	for i in range(len(ratings["movie_id"])):
 		realRat.add((ratings["user_id"][i], ratings["movie_id"][i]))
 	
-	unrated = []
+	"""unrated = []
 	i = 0
 	bigNumber = 1000000
 	for user in usersId:
@@ -34,16 +33,18 @@ def movieLensData(ratedVal, unratedVal, zeroProb):
 				
 	
 	unrated = pd.DataFrame(unrated, columns=["user_id", "movie_id", "rating"])
-	ratings = ratings.append(unrated, ignore_index=True)
+	ratings = ratings.append(unrated, ignore_index=True)"""
 	
 	return {"ratings":ratings, "nbrUser":nbrUser, "nbrMovie":nbrMovie, "realRat":realRat, "moviesId":moviesId, "usersId":usersId}
 
-def gfData():
-	cols = ['CUSTOMER_ID', 'MATERIAL', 'is_real']
-	with smbc.open_file(getAAUfilename(r"CleanDatasets\no_0s\binary_MC_no0s_populated1000.csv"), mode="r", username=input("username: "), password=getpass()) as f:
+def gfData(filename, username, psw):
+	#cols = ['CUSTOMER_ID', 'MATERIAL', 'is_real']
+	cols = ['CUSTOMER_ID', 'MATERIAL']
+	#with smbc.open_file(getAAUfilename(r"CleanDatasets\no_0s\binary_MC_no0s_populated1000.csv"), mode="r", username=input("username: "), password=getpass()) as f:
+	with smbc.open_file(getAAUfilename(filename), mode="r", username=username, password=psw) as f:
 		data = pd.read_csv(f, names = cols, dtype = {"MATERIAL":str, "CUSTOMER_ID": str})
 	data.drop(data.index[:1], inplace=True)
-	data["is_real"] = data["is_real"].apply(lambda x: float(x))
+	#data["is_real"] = data["is_real"].apply(lambda x: float(x))
 	
 	#ratings["MATERIAL"] = ratings["MATERIAL"].apply(lambda x : str(x))
 	#ratings["CUSTOMER_ID"] = ratings["CUSTOMER_ID"].apply(lambda x : str(x))

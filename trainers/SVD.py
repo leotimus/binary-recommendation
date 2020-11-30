@@ -15,7 +15,7 @@ NUMBER_OF_FACTORS = 40
 
 EPOCH_ERROR_CALCULATION_FREQUENCY = 5
 VERBOSE = True
-PRINT_EVERY = 25000
+PRINT_EVERY = 1000
 
 GRUNDFOS = True
 
@@ -53,7 +53,11 @@ else:
 
 def print_verbose(message):
     if VERBOSE:
-        print(message)
+        print(message, end="\r")
+
+def clear_verbose_print():
+    if VERBOSE:
+        print("\r" + " "*80, end="\r")
 
 def digest(data_chunks):
     user_ids = {}
@@ -66,10 +70,10 @@ def digest(data_chunks):
 
     number_of_chunks_to_eat = NUMBER_OF_CHUNKS_TO_EAT
 
-    for chunk in data_chunks:
-        next_user_id, next_item_id = convert_ids(chunk, user_ids, item_ids, next_user_id, next_item_id)
+    for i, chunk in enumerate(data_chunks):
+        next_user_id, next_item_id = convert_ids(chunk, i, user_ids, item_ids, next_user_id, next_item_id)
 
-        total_so_far, average_so_far = calculate_average(chunk, total_so_far, average_so_far)
+        total_so_far, average_so_far = calculate_average(chunk, i, total_so_far, average_so_far)
         
         number_of_chunks_to_eat -= 1
         if number_of_chunks_to_eat <= 0:
@@ -77,7 +81,7 @@ def digest(data_chunks):
 
     return user_ids, item_ids, next_user_id-1, next_item_id-1, average_so_far
 
-def convert_ids(chunk, user_ids, item_ids, next_user_id, next_item_id):
+def convert_ids(chunk, chunk_number, user_ids, item_ids, next_user_id, next_item_id):
     for index, row in chunk.iterrows():
         if not (row[USER_ID_COLUMN] in user_ids):
             user_ids[row[USER_ID_COLUMN]] = next_user_id
@@ -88,11 +92,11 @@ def convert_ids(chunk, user_ids, item_ids, next_user_id, next_item_id):
             next_item_id += 1
 
         if index%PRINT_EVERY == 0:
-            print_verbose("digesting... at index: {} next_item_id is {}".format(index, next_item_id))
-        
+            print_verbose(f"digesting... index: {index} chunk: {chunk_number}")
+
     return next_user_id, next_item_id
 
-def calculate_average(chunk, total_so_far, average_so_far):
+def calculate_average(chunk, chunk_number, total_so_far, average_so_far):
     chunk_total = chunk.shape[0]
     chunk_accumulator = 0
 
@@ -103,8 +107,10 @@ def calculate_average(chunk, total_so_far, average_so_far):
         chunk_accumulator += rating
 
         if index%PRINT_EVERY == 0:
-            print_verbose(f"calculating global average... at index: {index}")
+            print_verbose(f"calculating global average... index: {index} chunk: {chunk_number}")
     
+    clear_verbose_print()
+
     chunk_average = chunk_accumulator / chunk_total
 
     total_so_far += chunk_total
@@ -138,7 +144,7 @@ def predict(user, item, user_matrix, item_matrix, user_bias_vector, item_bias_ve
 def  fit_model(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids):
     number_of_chunks_to_eat = NUMBER_OF_CHUNKS_TO_EAT
 
-    for chunk in data_chunks:
+    for i, chunk in enumerate(data_chunks):
         for index, row in chunk.iterrows():
             
             user = user_ids[row[USER_ID_COLUMN]]
@@ -159,7 +165,9 @@ def  fit_model(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bia
                 user_matrix[user, n] = user_vector[n]
 
             if index%PRINT_EVERY == 0:
-                print_verbose(f"training... at index: {index} error is {error}")
+                print_verbose(f"training... index: {index} chunk: {i}")
+
+        clear_verbose_print()
 
         number_of_chunks_to_eat -= 1
         if number_of_chunks_to_eat <= 0:
@@ -170,7 +178,7 @@ def  mean_generic_error(generic, data_chunks, user_matrix, item_matrix, user_bia
     accumulator = 0
     count = 0
 
-    for chunk in data_chunks:
+    for i, chunk in enumerate(data_chunks):
         for index, row in chunk.iterrows():
             
             user = user_ids[row[USER_ID_COLUMN]]
@@ -182,7 +190,9 @@ def  mean_generic_error(generic, data_chunks, user_matrix, item_matrix, user_bia
             count += 1
 
             if index%PRINT_EVERY == 0:
-                print_verbose("calculating mean error... at index: {}".format(index))
+                print_verbose(f"calculating mean error... index: {index} chunk: {i}")
+        
+        clear_verbose_print()
 
         number_of_chunks_to_eat -= 1
         if number_of_chunks_to_eat <= 0:
@@ -287,7 +297,7 @@ if __name__ == "__main__":
     data_chunks = read_csv(credentials)
 
     print("-"*16)
-    print("Digesting....")
+    print("Digesting....", flush=True)
     user_ids, item_ids, uid_max, iid_max, global_bias = digest(data_chunks)
     number_of_users = uid_max + 1
     number_of_items = iid_max + 1
@@ -296,7 +306,7 @@ if __name__ == "__main__":
 
     print(f"number of users: {number_of_users}")
     print(f"number of items: {number_of_items}")
-    print(f"global bias: {global_bias}")
+    print(f"global bias: {global_bias}", flush=True)
     
     user_matrix = np.random.random((number_of_users, NUMBER_OF_FACTORS))
     item_matrix = np.random.random((number_of_items, NUMBER_OF_FACTORS))
@@ -304,7 +314,7 @@ if __name__ == "__main__":
     item_bias_vector = np.zeros(number_of_items)
 
     print("-"*16)
-    print("Training:")
+    print("Training:", flush=True)
 
     for i in range(1,  EPOCHS+1):
         data_chunks = read_csv(credentials)
@@ -314,16 +324,16 @@ if __name__ == "__main__":
 
         if i%EPOCH_ERROR_CALCULATION_FREQUENCY==0:
             err = mean_square_error(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
-            print (f"::::EPOCH {i:=3}::::      MSE: {err}")
+            print (f"::::EPOCH {i:=3}::::      MSE: {err}", flush=True)
         else:
-            print (f"::::EPOCH {i:=3}::::")
+            print (f"::::EPOCH {i:=3}::::", flush=True)
     
     print("-"*16)
-    print("Evaluating...")
+    print("Evaluating...", flush=True)
     actual_user_ids = user_ids.keys() # The reader is asked to recall that user_ids is a dict that maps the actual ids to our own made-up sequential integer ids
     actual_item_ids = item_ids.keys()
 
-    print("Reading test data.")
+    print("Reading test data.", flush=True)
     data_chunks = read_csv(credentials)
     number_of_chunks_to_eat = NUMBER_OF_CHUNKS_TO_EAT
     # Be sure we are at the very last chunk
@@ -336,7 +346,7 @@ if __name__ == "__main__":
 
     test_set = get_test_set(test_dataframe)
 
-    print("Calculating top-k results")
+    print("Calculating top-k results", flush=True)
     
     user_tensor = tf.convert_to_tensor(user_matrix, dtype=np.float32)
     item_tensor = tf.convert_to_tensor(item_matrix, dtype=np.float32)
@@ -352,3 +362,5 @@ if __name__ == "__main__":
     
     result = topk.topKMetrics(predictions, test_set, actual_user_ids, actual_item_ids)
     print(result)
+    print("-"*16)
+    print("::::ALL  DONE::::", flush=True)

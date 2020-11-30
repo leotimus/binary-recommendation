@@ -8,7 +8,7 @@ import tensorflow_recommenders as tfrs
 from src.AAUfilename import getAAUfilename
 from getpass import getpass
 
-EPOCHS = 20
+EPOCHS = 30
 LEARNING_RATE = 0.01
 REGULARIZATION = 0.01
 NUMBER_OF_FACTORS = 40
@@ -35,13 +35,13 @@ if not GRUNDFOS:
     TRANSACTION_COUNT_COLUMN = TRANSACTION_COUNT_SCALE = QUANTITY_SUM_COLUMN = QUANTITY_SUM_SCALE = None
 else:
     # Grundfos Data columns: CUSTOMER_ID,PRODUCT_ID,MATERIAL,TRANSACTION_COUNT,QUANTITY_SUM,FIRST_PURCHASE,LAST_PURCHASE,TIME_DIFF_DAYS
-    FILE_PATH = r"(NEW)CleanDatasets/SVD/2m(OG)/ds2_OG(2m)_timeDistributed_{0}.csv"
+    FILE_PATH = r"(NEW)CleanDatasets/NCF/2m(OG)/ds2_OG(2m)_timeDistributed_{0}.csv"
     CHUNK_MODE = "multi-file" # Either "single-file" or "multi-file"}.csv
     CHUNK_SIZE = None
     NUMBER_OF_CHUNKS_TO_EAT = 4
     USER_ID_COLUMN = "CUSTOMER_ID"
     ITEM_ID_COLUMN = "PRODUCT_ID"
-    RATING_COLUMN = None
+    RATING_COLUMN = "RATING_TYPE"
 
     TRANSACTION_COUNT_COLUMN = "TRANSACTION_COUNT"
     TRANSACTION_COUNT_SCALE = 0.6
@@ -276,10 +276,15 @@ class grundfos_network_drive_files:
         return chunk
 
 def read_csv(credentials):
-    if GRUNDFOS:
-        return grundfos_network_drive_files(FILE_PATH, credentials, [USER_ID_COLUMN, ITEM_ID_COLUMN, TRANSACTION_COUNT_COLUMN, QUANTITY_SUM_COLUMN])
+    if RATING_COLUMN!=None:
+        columns = [USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN]
     else:
-        return pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE, usecols=[USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN])
+        columns = [USER_ID_COLUMN, ITEM_ID_COLUMN, TRANSACTION_COUNT_COLUMN, QUANTITY_SUM_COLUMN]
+
+    if GRUNDFOS:
+        return grundfos_network_drive_files(FILE_PATH, credentials, columns)
+    else:
+        return pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE, usecols=columns)
 
 def get_test_set(test_dataframe):
 	result = set()

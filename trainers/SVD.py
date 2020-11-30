@@ -306,7 +306,7 @@ if __name__ == "__main__":
     print("-"*16)
     print("Training:")
 
-    for i in range(0,  EPOCHS):
+    for i in range(1,  EPOCHS+1):
         data_chunks = read_csv(credentials)
         fit_model(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
 

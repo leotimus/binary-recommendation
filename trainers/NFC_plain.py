@@ -23,7 +23,7 @@ start_time = time.time()
 
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 
-print ('Loading dataset...')
+print ('Loading dataset..')
 
 # path = "/home/user/data/"
 # all_files = glob.glob(os.path.join(path, "data_*.csv"))

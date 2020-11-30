@@ -3,6 +3,8 @@ import pandas as pd
 import math
 import trainers.topKMetrics as topk
 import smbclient as smbc
+import tensorflow as tf
+import tensorflow_recommenders as tfrs
 from src.AAUfilename import getAAUfilename
 from getpass import getpass
 
@@ -335,7 +337,18 @@ if __name__ == "__main__":
     test_set = get_test_set(test_dataframe)
 
     print("Calculating top-k results")
-    prediction_doer = svd_prediction_doer(user_ids, item_ids, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias)
-    top_10_ratings = topk.topKRatings(10, prediction_doer, actual_user_ids, actual_item_ids, mtype="svd")
-    results = topk.topKMetrics(top_10_ratings, test_set, actual_user_ids, actual_item_ids)
-    print(results)
+    
+    user_tensor = tf.convert_to_tensor(user_matrix, dtype=np.float32)
+    item_tensor = tf.convert_to_tensor(item_matrix, dtype=np.float32)
+
+    topk_predicter = tfrs.layers.factorized_top_k.BruteForce(k= 10)
+    topk_predicter.index(item_tensor)
+    
+    raw_predictions = topk_predicter(user_tensor)
+
+    predictions = []
+    for i, user in enumerate(user_ids):
+        predictions.append((user, [(raw_predictions[0][i][j], raw_predictions[1][i][j].numpy()) for j in range(len(raw_predictions[0][i]))]))
+    
+    result = topk.topKMetrics(predictions, test_set, actual_user_ids, actual_item_ids)
+    print(result)

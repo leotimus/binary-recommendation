@@ -4,12 +4,6 @@ from tensorflow.keras.models import Model
 
 from src.models.RModel import RModel
 
-MODEL_TO_DOT_PNG = 'export/model.png'
-MODEL_TRAIN_PLOT = 'export/plot.png'
-USER_FEATURE = 'CUSTOMER_ID'
-PRODUCT_FEATURE = 'PRODUCT_ID'
-CP_PATH = 'checkpoints/NeuMF02/cp'
-
 
 class NeuMFModel(RModel):
 
@@ -49,9 +43,9 @@ class NeuMFModel(RModel):
     output = Dense(1, activation='sigmoid')(combine)
 
     inputs = [userId, itemId]
-    model = Model(inputs, output, name=self.modelName)
+    self._model = Model(inputs, output, name=self.modelName)
 
-    model.compile(Adam(1e-3), loss='mean_squared_error',
-                  metrics=RModel.METRICS)
+    self._model.compile(Adam(1e-3), loss='mean_squared_error',
+                        metrics=RModel.METRICS)
 
-    return model
+    return self._model

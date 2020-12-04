@@ -8,13 +8,13 @@ import tensorflow_recommenders as tfrs
 from src.AAUfilename import getAAUfilename
 from getpass import getpass
 
-EPOCHS = 30
+EPOCHS = 10
 LEARNING_RATE = 0.01
 REGULARIZATION = 0.01
-NUMBER_OF_FACTORS = 40
+NUMBER_OF_FACTORS = 300
 
 TOPK_BATCH_SIZE = 5000
-EPOCH_ERROR_CALCULATION_FREQUENCY = 5
+EPOCH_ERROR_CALCULATION_FREQUENCY = 2
 VERBOSE = True
 PRINT_EVERY = 1000
 
@@ -26,9 +26,8 @@ GRUNDFOS = True
 # should be reserved for testing.
 if not GRUNDFOS:
     FILE_PATH = r"data/ml-100k/all.csv"
-    CHUNK_MODE = "single-file" # Either "single-file" or "multi-file"
     CHUNK_SIZE = 2E4
-    NUMBER_OF_CHUNKS_TO_EAT = 4
+    NUMBER_OF_CHUNKS_TO_EAT = 5
     USER_ID_COLUMN = "user_id"
     ITEM_ID_COLUMN = "item_id"
     RATING_COLUMN = "rating"
@@ -36,10 +35,9 @@ if not GRUNDFOS:
     TRANSACTION_COUNT_COLUMN = TRANSACTION_COUNT_SCALE = QUANTITY_SUM_COLUMN = QUANTITY_SUM_SCALE = None
 else:
     # Grundfos Data columns: CUSTOMER_ID,PRODUCT_ID,MATERIAL,TRANSACTION_COUNT,QUANTITY_SUM,FIRST_PURCHASE,LAST_PURCHASE,TIME_DIFF_DAYS
-    FILE_PATH = r"(NEW)CleanDatasets/NCF/2m(OG)/ds2_OG(2m)_timeDistributed_{0}.csv"
-    CHUNK_MODE = "multi-file" # Either "single-file" or "multi-file"}.csv
-    CHUNK_SIZE = None
-    NUMBER_OF_CHUNKS_TO_EAT = 4
+    FILE_PATH = r"(NEW)CleanDatasets/NCF/100k/ds2_100k_timeDistributed_{0}.csv"
+    NUMBER_OF_FILES = 5
+    NUMBER_OF_CHUNKS_TO_EAT = 5
     USER_ID_COLUMN = "CUSTOMER_ID"
     ITEM_ID_COLUMN = "PRODUCT_ID"
     RATING_COLUMN = "RATING_TYPE"
@@ -60,7 +58,7 @@ def clear_verbose_print():
     if VERBOSE:
         print("\r" + " "*80, end="\r")
 
-def digest(data_chunks):
+def digest(dataset):
     user_ids = {}
     item_ids = {}
     next_user_id = 0
@@ -71,7 +69,7 @@ def digest(data_chunks):
 
     number_of_chunks_to_eat = NUMBER_OF_CHUNKS_TO_EAT
 
-    for i, chunk in enumerate(data_chunks):
+    for i, chunk in enumerate(dataset):
         next_user_id, next_item_id = convert_ids(chunk, i, user_ids, item_ids, next_user_id, next_item_id)
 
         total_so_far, average_so_far = calculate_average(chunk, i, total_so_far, average_so_far)
@@ -142,10 +140,10 @@ def predict(user, item, user_matrix, item_matrix, user_bias_vector, item_bias_ve
 
     return user_bias + item_bias + global_bias + np.dot(item_vector, user_vector)
 
-def  fit_model(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids):
+def  fit_model(dataset, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids):
     number_of_chunks_to_eat = NUMBER_OF_CHUNKS_TO_EAT
 
-    for i, chunk in enumerate(data_chunks):
+    for i, chunk in enumerate(dataset):
         for index, row in chunk.iterrows():
             
             user = user_ids[row[USER_ID_COLUMN]]
@@ -174,12 +172,12 @@ def  fit_model(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bia
         if number_of_chunks_to_eat <= 0:
             break
 
-def  mean_generic_error(generic, data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids):
+def  mean_generic_error(generic, dataset, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids):
     number_of_chunks_to_eat = NUMBER_OF_CHUNKS_TO_EAT
     accumulator = 0
     count = 0
 
-    for i, chunk in enumerate(data_chunks):
+    for i, chunk in enumerate(dataset):
         for index, row in chunk.iterrows():
             
             user = user_ids[row[USER_ID_COLUMN]]
@@ -201,11 +199,11 @@ def  mean_generic_error(generic, data_chunks, user_matrix, item_matrix, user_bia
 
     return accumulator / count
 
-def mean_absolute_error(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids):
-    return mean_generic_error(abs, data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
+def mean_absolute_error(dataset, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids):
+    return mean_generic_error(abs, dataset, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
 
-def mean_square_error(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids):
-    return mean_generic_error(lambda x: x**2, data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
+def mean_square_error(dataset, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids):
+    return mean_generic_error(lambda x: x**2, dataset, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
 
 def get_rating(row):
     if RATING_COLUMN!=None:
@@ -253,39 +251,85 @@ def recommend(user_vector, item_matrix, k):
     
     return result
 
-class grundfos_network_drive_files:
-    def __init__(self, file_path, credentials, columns):
+class movielens_cross_validation:
+    def __init__(self, file_path, number_of_chunks_to_eat, columns):
         self.file_path = file_path
+        self.number_of_chunks_to_eat = number_of_chunks_to_eat
         self.columns = columns
-        self.username, self.password = credentials
-    
+        self.test_set_index = 0
+        self.chunks = list(pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE, usecols=columns))
+
+    def next_cross_validation_distribution(self):
+        self.test_set_index += 1
+        
+        if(self.test_set_index >= self.number_of_chunks_to_eat):
+            return False
+        else:
+            return True
+
+    def get_test_set(self):
+        return self.chunks[self.test_set_index]
+
     def __iter__(self):
-        self.next_chunk = 1
+        self.next_chunk = 0
+        self.chunks.__iter__()
         return self
 
     def __next__(self):
-        file_path = self.file_path.format(self.next_chunk)
-        network_path = getAAUfilename(file_path)
+        if self.next_chunk == self.test_set_index:
+            self.next_chunk += 1
+            return self.__next__()
         
-        try:
-            with smbc.open_file(network_path, mode="r", username=self.username, password=self.password) as f:
-                chunk = pd.read_csv(f, usecols=self.columns)
-        except FileNotFoundError:
-            raise StopIteration
-
+        chunk = self.chunks[self.next_chunk]
         self.next_chunk += 1
         return chunk
 
-def read_csv(credentials):
-    if RATING_COLUMN!=None:
-        columns = [USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN]
-    else:
-        columns = [USER_ID_COLUMN, ITEM_ID_COLUMN, TRANSACTION_COUNT_COLUMN, QUANTITY_SUM_COLUMN]
+class grundfos_network_drive_files:
+    def __init__(self, file_path, number_of_files, credentials, columns):
+        self.file_path = file_path
+        self.number_of_files = number_of_files
+        self.columns = columns
+        self.username, self.password = credentials
+        self.test_set_index = 0
 
-    if GRUNDFOS:
-        return grundfos_network_drive_files(FILE_PATH, credentials, columns)
-    else:
-        return pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE, usecols=columns)
+        self.files = []
+
+        for i in range(1, number_of_files+1):
+            file_path = self.file_path.format(i)
+            network_path = getAAUfilename(file_path)
+
+            with smbc.open_file(network_path, mode="r", username=self.username, password=self.password) as f:
+                file = pd.read_csv(f, usecols=self.columns)
+                self.files.append(file)
+
+    
+    def next_cross_validation_distribution(self):
+        self.test_set_index += 1
+        
+        if(self.test_set_index >= self.number_of_files):
+            return False
+        else:
+            return True
+
+    def get_test_set(self):
+        return self.files[self.test_set_index]
+
+    def __iter__(self):
+        self.next_file_index = 0
+        return self
+
+    def __next__(self):
+        if self.next_file_index == self.test_set_index:
+            self.next_file_index += 1
+            return self.__next__()
+
+        if self.next_file_index >= self.number_of_files:
+            raise StopIteration
+        
+        chunk = self.files[self.next_file_index]
+
+        self.next_file_index += 1
+        return chunk
 
 def get_test_set(test_dataframe):
 	result = set()
@@ -293,22 +337,12 @@ def get_test_set(test_dataframe):
 		result.add((row[USER_ID_COLUMN], row[ITEM_ID_COLUMN]))
 	return result
     
-if __name__ == "__main__":
-    credentials = (None, None)
-    if GRUNDFOS:
-        username = input("Username:")
-        password = getpass()
-        credentials = (username, password)
-
-    data_chunks = read_csv(credentials)
-
+def train_and_evaluate(dataset):
     print("-"*16)
     print("Digesting....", flush=True)
-    user_ids, item_ids, uid_max, iid_max, global_bias = digest(data_chunks)
+    user_ids, item_ids, uid_max, iid_max, global_bias = digest(dataset)
     number_of_users = uid_max + 1
     number_of_items = iid_max + 1
-
-    data_chunks = read_csv(credentials)
 
     print(f"number of users: {number_of_users}")
     print(f"number of items: {number_of_items}")
@@ -323,13 +357,10 @@ if __name__ == "__main__":
     print("Training:", flush=True)
 
     for i in range(1,  EPOCHS+1):
-        data_chunks = read_csv(credentials)
-        fit_model(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
-
-        data_chunks = read_csv(credentials)
+        fit_model(dataset, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
 
         if i%EPOCH_ERROR_CALCULATION_FREQUENCY==0:
-            err = mean_square_error(data_chunks, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
+            err = mean_square_error(dataset, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
             print (f"::::EPOCH {i:=3}::::      MSE: {err}", flush=True)
         else:
             print (f"::::EPOCH {i:=3}::::", flush=True)
@@ -340,15 +371,14 @@ if __name__ == "__main__":
     actual_item_ids = item_ids.keys()
 
     print("Reading test data.", flush=True)
-    data_chunks = read_csv(credentials)
     number_of_chunks_to_eat = NUMBER_OF_CHUNKS_TO_EAT
     # Be sure we are at the very last chunk
-    for _ in data_chunks:
+    for _ in dataset:
         number_of_chunks_to_eat -= 1
         if number_of_chunks_to_eat <= 0:
             break
 
-    test_dataframe = next(data_chunks) # If you get a StopIteration exception on this line, you forgot to reserve a last chunk for testing.
+    test_dataframe = dataset.get_test_set()
 
     test_set = get_test_set(test_dataframe)
 
@@ -372,4 +402,43 @@ if __name__ == "__main__":
     result = topk.topKMetrics(predictions, test_set, actual_user_ids, actual_item_ids)
     print(result)
     print("-"*16)
+
+    return result
+
+if __name__ == "__main__":
+    credentials = (None, None)
+    if GRUNDFOS:
+        username = input("Username:")
+        password = getpass()
+        credentials = (username, password)
+
+    if RATING_COLUMN!=None:
+        columns = [USER_ID_COLUMN, ITEM_ID_COLUMN, RATING_COLUMN]
+    else:
+        columns = [USER_ID_COLUMN, ITEM_ID_COLUMN, TRANSACTION_COUNT_COLUMN, QUANTITY_SUM_COLUMN]
+
+    if GRUNDFOS:
+        dataset = grundfos_network_drive_files(FILE_PATH, NUMBER_OF_FILES, credentials, columns)
+    else:
+        dataset = movielens_cross_validation(FILE_PATH, NUMBER_OF_CHUNKS_TO_EAT, columns)
+    
+    results = []
+
+    x_val=1
+    while True:
+        print("="*16)
+        print(f"Cross validation {x_val} of 5")
+        print("="*16)
+        x_val+=1
+
+        result = train_and_evaluate(dataset)
+        results.append(result)
+
+        if not dataset.next_cross_validation_distribution():
+            break
+    
+    result = topk.getAverage(results)
+
+    print("="*16)
+    print(result)
     print("::::ALL  DONE::::", flush=True)

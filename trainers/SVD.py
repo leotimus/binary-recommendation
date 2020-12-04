@@ -13,6 +13,7 @@ LEARNING_RATE = 0.01
 REGULARIZATION = 0.01
 NUMBER_OF_FACTORS = 40
 
+TOPK_BATCH_SIZE = 5000
 EPOCH_ERROR_CALCULATION_FREQUENCY = 5
 VERBOSE = True
 PRINT_EVERY = 1000
@@ -353,17 +354,20 @@ if __name__ == "__main__":
 
     print("Calculating top-k results", flush=True)
     
-    user_tensor = tf.convert_to_tensor(user_matrix, dtype=np.float32)
     item_tensor = tf.convert_to_tensor(item_matrix, dtype=np.float32)
 
     topk_predicter = tfrs.layers.factorized_top_k.BruteForce(k= 10)
     topk_predicter.index(item_tensor)
     
-    raw_predictions = topk_predicter(user_tensor)
-
     predictions = []
-    for i, user in enumerate(user_ids):
-        predictions.append((user, [(raw_predictions[0][i][j], raw_predictions[1][i][j].numpy()) for j in range(len(raw_predictions[0][i]))]))
+    
+    user_id = 0
+    for batch in np.array_split(user_matrix, TOPK_BATCH_SIZE):
+        tensor_batch = tf.convert_to_tensor(batch, dtype=np.float32)
+        raw_predictions = topk_predicter(tensor_batch)
+        for u in range(len(batch)):
+            predictions.append((user_id, [(raw_predictions[0][u][j], raw_predictions[1][u][j].numpy()) for j in range(len(raw_predictions[0][u]))]))
+            user_id+=1
     
     result = topk.topKMetrics(predictions, test_set, actual_user_ids, actual_item_ids)
     print(result)

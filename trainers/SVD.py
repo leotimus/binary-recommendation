@@ -17,6 +17,8 @@ EPOCH_ERROR_CALCULATION_FREQUENCY = 5
 VERBOSE = True
 PRINT_EVERY = 1000
 
+TOPK_BATCH_SIZE = 50000
+
 GRUNDFOS = True
 
 # The data is expected in chunks, either in separate files or in a single
@@ -354,10 +356,10 @@ if __name__ == "__main__":
     print("Calculating top-k results", flush=True)
     
     user_tensor = tf.convert_to_tensor(user_matrix, dtype=np.float32)
-    item_tensor = tf.convert_to_tensor(item_matrix, dtype=np.float32)
+    item_dataset = tf.data.Dataset.from_tensor_slices(tf.convert_to_tensor(item_matrix, dtype=np.float32))
 
     topk_predicter = tfrs.layers.factorized_top_k.BruteForce(k= 10)
-    topk_predicter.index(item_tensor)
+    topk_predicter.index(item_dataset.batch(TOPK_BATCH_SIZE))
     
     raw_predictions = topk_predicter(user_tensor)
 

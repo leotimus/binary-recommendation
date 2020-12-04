@@ -11,7 +11,7 @@ from getpass import getpass
 EPOCHS = 10
 LEARNING_RATE = 0.01
 REGULARIZATION = 0.01
-NUMBER_OF_FACTORS = 300
+NUMBER_OF_FACTORS = 200
 
 TOPK_BATCH_SIZE = 5000
 EPOCH_ERROR_CALCULATION_FREQUENCY = 2
@@ -348,8 +348,8 @@ def train_and_evaluate(dataset):
     print(f"number of items: {number_of_items}")
     print(f"global bias: {global_bias}", flush=True)
     
-    user_matrix = np.random.random((number_of_users, NUMBER_OF_FACTORS))
-    item_matrix = np.random.random((number_of_items, NUMBER_OF_FACTORS))
+    user_matrix = np.random.random((number_of_users, NUMBER_OF_FACTORS)) * (1/NUMBER_OF_FACTORS)
+    item_matrix = np.random.random((number_of_items, NUMBER_OF_FACTORS)) * (1/NUMBER_OF_FACTORS)
     user_bias_vector = np.zeros(number_of_users)
     item_bias_vector = np.zeros(number_of_items)
 

@@ -193,12 +193,10 @@ def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, 
 
 
 if __name__ == "__main__":
-	memIdleMB = round(psutil.virtual_memory().used / (1024 ** 2)) #take the idle memory usage & use it to compute delta
 	bmFilepath = 'TopK100k.csv' #where to log the benchmark
 	bmPollTime = 1 #how often to poll for stats
-	bmThread = benchThread(1,1,bmFilepath, memIdleMB) #create the thread
+	bmThread = benchThread(bmPollTime,1,bmFilepath) #create the thread
 	bmThread.start() #and start it
-	time.sleep(20)
 	print(sys.argv)
 	learningRate = 0.1
 	optimiser = "Adagrad"
@@ -234,7 +232,7 @@ if __name__ == "__main__":
 		#f.write("k: " + str(k) + ", learning rate: " + str(learningRate) + ", optimiser: " + optimiser + ", splitRatio: " + str(splitRatio) + ", loss: " + str(loss) + ", filename: " + str(filename) + ", epoch: " + str(epoch) + "nbr embedings: " + str(embNum) + ", batchSize: " + str(batchSize) + "\n")
 		#f.write(str(res) + "\n")
 	bmThread.active = 0 #deactivate the thread, will exit on the next while loop cycle
-	time.sleep(bmPollTime+1) #wait for it to exit on its own, since its daemon as a precaution
+	bmThread.join()  # wait for it to exit on its own, since its daemon as a precaution
 	print("Done",flush=True)
 	#raise Exception
 

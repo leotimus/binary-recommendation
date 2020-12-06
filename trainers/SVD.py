@@ -405,12 +405,6 @@ def train_and_evaluate(dataset):
     actual_item_ids = item_ids.keys()
 
     print("Reading test data.", flush=True)
-    number_of_chunks_to_eat = NUMBER_OF_CHUNKS_TO_EAT
-    # Be sure we are at the very last chunk
-    for _ in dataset:
-        number_of_chunks_to_eat -= 1
-        if number_of_chunks_to_eat <= 0:
-            break
 
     test_dataframe = dataset.get_test_set()
 

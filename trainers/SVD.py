@@ -66,6 +66,29 @@ def clear_verbose_print():
         verbose_print_count = 0
         print("\r" + " "*80, end="\r")
 
+def get_config():
+    result = {
+                "epochs":EPOCHS,
+        "learning_rate":LEARNING_RATE,
+        "regularization":REGULARIZATION,
+        "number_of_factors":NUMBER_OF_FACTORS,
+        "grundfos":GRUNDFOS,
+        "file_path":FILE_PATH
+    }
+    if GRUNDFOS:
+        grundfos_specific = {
+            "rating_column":RATING_COLUMN,
+            "transaction_count_column":TRANSACTION_COUNT_COLUMN,
+            "transaction_count_scale":TRANSACTION_COUNT_SCALE,
+            "transaction_count_quintiles":TRANSACTION_COUNT_QUINTILES,
+            "quantity_sum_column":QUANTITY_SUM_COLUMN,
+            "quantity_sum_scale":QUANTITY_SUM_SCALE,
+            "quantity_sum_quintiles":QUANTITY_SUM_QUINTILES
+        }
+        return dict(result, **grundfos_specific)
+    else:
+        return result
+
 def digest(dataset):
     user_ids = {}
     item_ids = {}
@@ -411,7 +434,8 @@ def train_and_evaluate(dataset):
             user_id+=1
     
     result = topk.topKMetrics(predictions, test_set, actual_user_ids, actual_item_ids)
-    print(result)
+    print(f"Using config: {get_config()}")
+    print(f"Got results: {result}")
     print("-"*16)
 
     return result
@@ -451,5 +475,6 @@ if __name__ == "__main__":
     result = topk.getAverage(results)
 
     print("="*16)
-    print(result)
+    print(f"Using config: {get_config()}")
+    print(f"Got final results: {result}")
     print("::::ALL  DONE::::", flush=True)

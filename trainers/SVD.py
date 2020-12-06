@@ -288,6 +288,9 @@ class movielens_cross_validation:
             self.next_chunk += 1
             return self.__next__()
         
+        if self.next_chunk >= len(self.chunks):
+            raise StopIteration
+
         chunk = self.chunks[self.next_chunk]
         self.next_chunk += 1
         return chunk

@@ -35,7 +35,7 @@ if not GRUNDFOS:
     TRANSACTION_COUNT_COLUMN = TRANSACTION_COUNT_SCALE = QUANTITY_SUM_COLUMN = QUANTITY_SUM_SCALE = None
 else:
     # Grundfos Data columns: CUSTOMER_ID,PRODUCT_ID,MATERIAL,TRANSACTION_COUNT,QUANTITY_SUM,FIRST_PURCHASE,LAST_PURCHASE,TIME_DIFF_DAYS
-    FILE_PATH = r"(NEW)CleanDatasets/NCF/100k/ds2_100k_timeDistributed_{0}.csv"
+    FILE_PATH = r"(NEW)CleanDatasets/NCF/2m(OG)/ds2_OG(2m)_timeDistributed_{0}.csv"
     NUMBER_OF_FILES = 5
     NUMBER_OF_CHUNKS_TO_EAT = 5
     USER_ID_COLUMN = "CUSTOMER_ID"
@@ -185,6 +185,9 @@ def  fit_model(dataset, user_matrix, item_matrix, user_bias_vector, item_bias_ve
 
             error = get_rating(row) - predict(user, item, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias)
 
+            if error > 200:
+                print(f"Warning! Error is out of whack! Value: {error}")
+
             item_vector = item_vector + LEARNING_RATE * (error * user_vector - REGULARIZATION * item_vector)
             user_vector = user_vector + LEARNING_RATE * (error * item_vector - REGULARIZATION * user_vector)
             user_bias_vector[user] = user_bias_vector[user] + LEARNING_RATE * (error * user_bias_vector[user] - REGULARIZATION * user_bias_vector[user])
@@ -282,6 +285,7 @@ def recommend(user_vector, item_matrix, k):
     
     return result
 
+# TODO: These two classes share a lot of code that could probably be made a super-class but I'm not in the mood
 class movielens_cross_validation:
     def __init__(self, file_path, number_of_chunks_to_eat, columns):
         self.file_path = file_path
@@ -290,6 +294,12 @@ class movielens_cross_validation:
         self.test_set_index = 0
         self.chunks = list(pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE, usecols=columns))
 
+    """ Makes the iterator return every chunk, reserving none for testing """
+    def use_no_test_set(self):
+        self.test_set_index = -1
+
+    """ Changes the dataset to use the next chunk in line to be the test set. 
+        Returns False if every chunk has already been used as test-set. """
     def next_cross_validation_distribution(self):
         self.test_set_index += 1
         
@@ -299,6 +309,9 @@ class movielens_cross_validation:
             return True
 
     def get_test_set(self):
+        if self.test_set_index == -1:
+            raise Exception("There is no test set because use_no_test_set was called. Call next_cross_validation_distribution to set the first chunk to be the test set again.")
+
         return self.chunks[self.test_set_index]
 
     def __iter__(self):
@@ -336,7 +349,8 @@ class grundfos_network_drive_files:
                 file = pd.read_csv(f, usecols=self.columns)
                 self.files.append(file)
 
-    
+    """ Changes the dataset to use the next chunk in line to be the test set. 
+        Returns False if every chunk has already been used as test-set. """
     def next_cross_validation_distribution(self):
         self.test_set_index += 1
         
@@ -346,6 +360,9 @@ class grundfos_network_drive_files:
             return True
 
     def get_test_set(self):
+        if self.test_set_index == -1:
+            raise Exception("There is no test set because use_no_test_set was called. Call next_cross_validation_distribution to set the first chunk to be the test set again.")
+
         return self.files[self.test_set_index]
 
     def __iter__(self):
@@ -370,48 +387,11 @@ def get_test_set(test_dataframe):
 	for _, row in test_dataframe.iterrows():
 		result.add((row[USER_ID_COLUMN], row[ITEM_ID_COLUMN]))
 	return result
-    
-def train_and_evaluate(dataset):
-    print("-"*16)
-    print("Digesting....", flush=True)
-    user_ids, item_ids, uid_max, iid_max, global_bias = digest(dataset)
-    number_of_users = uid_max + 1
-    number_of_items = iid_max + 1
 
-    print(f"number of users: {number_of_users}")
-    print(f"number of items: {number_of_items}")
-    print(f"global bias: {global_bias}", flush=True)
-    
-    user_matrix = np.random.random((number_of_users, NUMBER_OF_FACTORS)) * (1/NUMBER_OF_FACTORS)
-    item_matrix = np.random.random((number_of_items, NUMBER_OF_FACTORS)) * (1/NUMBER_OF_FACTORS)
-    user_bias_vector = np.zeros(number_of_users)
-    item_bias_vector = np.zeros(number_of_items)
-
-    print("-"*16)
-    print("Training:", flush=True)
-
-    for i in range(1,  EPOCHS+1):
-        fit_model(dataset, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
-
-        if i%EPOCH_ERROR_CALCULATION_FREQUENCY==0:
-            err = mean_square_error(dataset, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
-            print (f"::::EPOCH {i:=3}::::      MSE: {err}", flush=True)
-        else:
-            print (f"::::EPOCH {i:=3}::::", flush=True)
-    
-    print("-"*16)
-    print("Evaluating...", flush=True)
+def do_topk(user_matrix, item_matrix, test_set, user_ids, item_ids):
     actual_user_ids = user_ids.keys() # The reader is asked to recall that user_ids is a dict that maps the actual ids to our own made-up sequential integer ids
     actual_item_ids = item_ids.keys()
 
-    print("Reading test data.", flush=True)
-
-    test_dataframe = dataset.get_test_set()
-
-    test_set = get_test_set(test_dataframe)
-
-    print("Calculating top-k results", flush=True)
-    
     item_tensor = tf.convert_to_tensor(item_matrix, dtype=np.float32)
 
     topk_predicter = tfrs.layers.factorized_top_k.BruteForce(k= 10)
@@ -427,14 +407,55 @@ def train_and_evaluate(dataset):
             predictions.append((user_id, [(raw_predictions[0][u][j], raw_predictions[1][u][j].numpy()) for j in range(len(raw_predictions[0][u]))]))
             user_id+=1
     
-    result = topk.topKMetrics(predictions, test_set, actual_user_ids, actual_item_ids)
+    return topk.topKMetrics(predictions, test_set, actual_user_ids, actual_item_ids)
+
+def train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bias):
+    number_of_users = uid_max + 1
+    number_of_items = iid_max + 1
+
+    print(f"number of users: {number_of_users}")
+    print(f"number of items: {number_of_items}")
+    print(f"global bias: {global_bias}", flush=True)
+    
+    user_matrix = np.random.random((number_of_users, NUMBER_OF_FACTORS)) * (1/NUMBER_OF_FACTORS)
+    item_matrix = np.random.random((number_of_items, NUMBER_OF_FACTORS)) * (1/NUMBER_OF_FACTORS)
+    user_bias_vector = np.zeros(number_of_users)
+    item_bias_vector = np.zeros(number_of_items)
+
+    test_dataframe = dataset.get_test_set()
+
+    print("-"*16)
+    print("Training:", flush=True)
+
+    for i in range(1,  EPOCHS+1):
+        fit_model(dataset, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
+
+        if i%EPOCH_ERROR_CALCULATION_FREQUENCY==0:
+            err = mean_square_error(dataset, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
+            print (f"::::EPOCH {i:=3}::::      MSE: {err}", flush=True)
+            test_set_err = mean_square_error([test_dataframe], user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
+            print(f"And on the test set    MSE: {test_set_err}")
+        else:
+            print (f"::::EPOCH {i:=3}::::", flush=True)
+    
+    print("-"*16)
+    print("Evaluating...", flush=True)
+
+
+    test_set = get_test_set(test_dataframe) # Set of (user, item) pairs
+    print("Calculating MSE on test set", flush=True)
+
+    print("Calculating top-k results", flush=True)
+
+    result = do_topk(user_matrix, item_matrix, test_set, user_ids, item_ids)
+
     print(f"Using config: {get_config()}")
     print(f"Got results: {result}")
     print("-"*16)
 
     return result
 
-if __name__ == "__main__":
+def get_data(): 
     credentials = (None, None)
     if GRUNDFOS:
         username = input("Username:")
@@ -451,6 +472,19 @@ if __name__ == "__main__":
     else:
         dataset = movielens_cross_validation(FILE_PATH, NUMBER_OF_CHUNKS_TO_EAT, columns)
     
+    return dataset
+
+if __name__ == "__main__":
+    print("Loading data...")
+    dataset = get_data()
+    dataset.use_no_test_set() # Don't hold any chunk back as the test set, so that every chunk can be digested.
+
+    print("-"*16)
+    print("Digesting....", flush=True)
+    user_ids, item_ids, uid_max, iid_max, global_bias = digest(dataset)
+
+    dataset.next_cross_validation_distribution() # Use the first chunk as the test set
+    
     results = []
 
     x_val=1
@@ -460,7 +494,7 @@ if __name__ == "__main__":
         print("="*16)
         x_val+=1
 
-        result = train_and_evaluate(dataset)
+        result = train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bias)
         results.append(result)
 
         if not dataset.next_cross_validation_distribution():

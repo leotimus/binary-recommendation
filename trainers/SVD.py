@@ -16,7 +16,7 @@ NUMBER_OF_FACTORS = 200
 TOPK_BATCH_SIZE = 5000
 EPOCH_ERROR_CALCULATION_FREQUENCY = 2
 VERBOSE = True
-PRINT_EVERY = 1000
+PRINT_EVERY = 1351 # Get more random-looking numbers
 
 GRUNDFOS = True
 
@@ -50,12 +50,20 @@ else:
     QUANTITY_SUM_SCALE = 0.4
     QUANTITY_SUM_QUINTILES = (1, 1, 2)
 
+verbose_print_count = 0
+verbose_print_indicators = r"-\|/-\|/"
 def print_verbose(message):
+    global verbose_print_count
     if VERBOSE:
-        print(message, end="\r")
+        indicator = verbose_print_indicators[verbose_print_count%len(verbose_print_indicators)]
+        indicator = f"{indicator}  "
+        verbose_print_count += 1
+        print(indicator + message, end="\r")
 
 def clear_verbose_print():
+    global verbose_print_count
     if VERBOSE:
+        verbose_print_count = 0
         print("\r" + " "*80, end="\r")
 
 def digest(dataset):

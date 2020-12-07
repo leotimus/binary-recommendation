@@ -6,6 +6,7 @@ import smbclient as smbc
 import tensorflow as tf
 import tensorflow_recommenders as tfrs
 import git
+from datetime import datetime
 from src.AAUfilename import getAAUfilename
 from getpass import getpass
 
@@ -71,13 +72,12 @@ def get_config():
     repo = git.Repo(search_parent_directories=True)
     git_commit_sha = repo.head.object.hexsha
     result = {
-        "git_commit_sha": git_commit_sha,
         "epochs":EPOCHS,
         "learning_rate":LEARNING_RATE,
         "regularization":REGULARIZATION,
         "number_of_factors":NUMBER_OF_FACTORS,
-        "grundfos":GRUNDFOS,
-        "file_path":FILE_PATH
+        "file_path":FILE_PATH,
+        "git_commit_sha": git_commit_sha
     }
     if GRUNDFOS:
         grundfos_specific = {
@@ -440,13 +440,15 @@ def train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bia
     for i in range(1,  EPOCHS+1):
         fit_model(dataset, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
 
+        current_time = datetime.now().strftime("%H:%M:%S")
+
         if i%EPOCH_ERROR_CALCULATION_FREQUENCY==0:
             err = mean_square_error(dataset, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
-            print (f"::::EPOCH {i:=3}::::      MSE: {err}", flush=True)
+            print (f"::::EPOCH {i:=3}::::    {current_time}    MSE: {err}", flush=True)
             test_set_err = mean_square_error([test_dataframe], user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
-            print(f"And on the test set    MSE: {test_set_err}")
+            print(f"             And on the test set MSE: {test_set_err}")
         else:
-            print (f"::::EPOCH {i:=3}::::", flush=True)
+            print (f"::::EPOCH {i:=3}::::    {current_time}", flush=True)
     
     print("-"*16)
     print("Evaluating...", flush=True)
@@ -485,6 +487,7 @@ def get_data():
     return dataset
 
 if __name__ == "__main__":
+    print(get_config())
     print("Loading data...")
     dataset = get_data()
     dataset.use_no_test_set() # Don't hold any chunk back as the test set, so that every chunk can be digested.

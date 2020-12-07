@@ -16,7 +16,7 @@ REGULARIZATION = 0.1
 NUMBER_OF_FACTORS = 200
 
 TOPK_BATCH_SIZE = 5000
-EPOCH_ERROR_CALCULATION_FREQUENCY = 1
+EPOCH_ERROR_CALCULATION_FREQUENCY = 4
 VERBOSE = True
 PRINT_EVERY = 1351 # Get more random-looking numbers
 
@@ -37,7 +37,7 @@ if not GRUNDFOS:
     TRANSACTION_COUNT_COLUMN = TRANSACTION_COUNT_SCALE = QUANTITY_SUM_COLUMN = QUANTITY_SUM_SCALE = None
 else:
     # Grundfos Data columns: CUSTOMER_ID,PRODUCT_ID,MATERIAL,TRANSACTION_COUNT,QUANTITY_SUM,FIRST_PURCHASE,LAST_PURCHASE,TIME_DIFF_DAYS
-    #FILE_PATH = r"(NEW)CleanDatasets/NCF/2m(OG)/ds2_OG(2m)_timeDistributed_{0}.csv"
+    #FILE_PATH = r"(NEW)CleanDatasets/NCF/100k/ds2_100k_timeDistributed_{0}.csv"
     FILE_PATH = r"(NEW)CleanDatasets/NCF/2m(OG)/ds2_OG(2m)_timeDistributed_{0}.csv"
     NUMBER_OF_FILES = 5
     NUMBER_OF_CHUNKS_TO_EAT = 5
@@ -374,7 +374,12 @@ class grundfos_network_drive_files:
         if self.test_set_index == -1:
             raise Exception("There is no test set because use_no_test_set was called. Call next_cross_validation_distribution to set the first chunk to be the test set again.")
 
-        return self.files[self.test_set_index]
+        test_set = self.files[self.test_set_index]
+
+        if RATING_COLUMN != None:
+            test_set = test_set.query(f"{RATING_COLUMN}==1")
+
+        return test_set
 
     def __iter__(self):
         self.next_file_index = 0

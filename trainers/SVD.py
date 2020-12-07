@@ -10,7 +10,7 @@ from datetime import datetime
 from src.AAUfilename import getAAUfilename
 from getpass import getpass
 
-EPOCHS = 40
+EPOCHS = 25
 LEARNING_RATE = 0.07
 REGULARIZATION = 0.1
 NUMBER_OF_FACTORS = 200
@@ -38,7 +38,7 @@ if not GRUNDFOS:
 else:
     # Grundfos Data columns: CUSTOMER_ID,PRODUCT_ID,MATERIAL,TRANSACTION_COUNT,QUANTITY_SUM,FIRST_PURCHASE,LAST_PURCHASE,TIME_DIFF_DAYS
     #FILE_PATH = r"(NEW)CleanDatasets/NCF/2m(OG)/ds2_OG(2m)_timeDistributed_{0}.csv"
-    FILE_PATH = r"(NEW)CleanDatasets/NCF/100k/ds2_100k_timeDistributed_{0}.csv"
+    FILE_PATH = r"(NEW)CleanDatasets/NCF/2m(OG)/ds2_OG(2m)_timeDistributed_{0}.csv"
     NUMBER_OF_FILES = 5
     NUMBER_OF_CHUNKS_TO_EAT = 5
     USER_ID_COLUMN = "CUSTOMER_ID"

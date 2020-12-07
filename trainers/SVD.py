@@ -353,6 +353,10 @@ class grundfos_network_drive_files:
                 file = pd.read_csv(f, usecols=self.columns)
                 self.files.append(file)
 
+    """ Makes the iterator return every chunk, reserving none for testing """
+    def use_no_test_set(self):
+        self.test_set_index = -1
+
     """ Changes the dataset to use the next chunk in line to be the test set. 
         Returns False if every chunk has already been used as test-set. """
     def next_cross_validation_distribution(self):

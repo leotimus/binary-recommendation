@@ -27,7 +27,7 @@ GRUNDFOS = True
 # should be reserved for testing.
 if not GRUNDFOS:
     FILE_PATH = r"data/ml-100k/all.csv"
-    CHUNK_SIZE = 2E4
+    CHUNK_SIZE = 20000
     NUMBER_OF_CHUNKS_TO_EAT = 5
     USER_ID_COLUMN = "user_id"
     ITEM_ID_COLUMN = "item_id"
@@ -296,7 +296,9 @@ class movielens_cross_validation:
         self.number_of_chunks_to_eat = number_of_chunks_to_eat
         self.columns = columns
         self.test_set_index = 0
-        self.chunks = list(pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE, usecols=columns))
+        self.chunks = pd.read_csv(FILE_PATH, usecols=columns)
+        self.chunks = self.chunks.sample(frac=1).reset_index(drop=True)
+        self.chunks = np.array_split(self.chunks, 5, axis=0)
 
     """ Makes the iterator return every chunk, reserving none for testing """
     def use_no_test_set(self):

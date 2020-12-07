@@ -296,27 +296,27 @@ class movielens_cross_validation:
         self.file_path = file_path
         self.number_of_chunks_to_eat = number_of_chunks_to_eat
         self.columns = columns
-        self.test_set_index = 0
+        self.test_set_index = self.number_of_chunks_to_eat-1 # Start with the last chunk as the test-set
         self.chunks = pd.read_csv(FILE_PATH, usecols=columns)
         self.chunks = self.chunks.sample(frac=1).reset_index(drop=True)
         self.chunks = np.array_split(self.chunks, 5, axis=0)
 
     """ Makes the iterator return every chunk, reserving none for testing """
     def use_no_test_set(self):
-        self.test_set_index = -1
+        self.test_set_index = self.number_of_chunks_to_eat # This number is 1 higher than the index of the last chunk in self.chunks
 
     """ Changes the dataset to use the next chunk in line to be the test set. 
         Returns False if every chunk has already been used as test-set. """
     def next_cross_validation_distribution(self):
-        self.test_set_index += 1
+        self.test_set_index -= 1
         
-        if(self.test_set_index >= self.number_of_chunks_to_eat):
+        if(self.test_set_index < 0):
             return False
         else:
             return True
 
     def get_test_set(self):
-        if self.test_set_index == -1:
+        if self.test_set_index == self.number_of_chunks_to_eat:
             raise Exception("There is no test set because use_no_test_set was called. Call next_cross_validation_distribution to set the first chunk to be the test set again.")
 
         return self.chunks[self.test_set_index]
@@ -344,7 +344,7 @@ class grundfos_network_drive_files:
         self.number_of_files = number_of_files
         self.columns = columns
         self.username, self.password = credentials
-        self.test_set_index = 0
+        self.test_set_index = self.number_of_files-1 # Start by using the last file as the test-set
 
         self.files = []
 
@@ -358,14 +358,14 @@ class grundfos_network_drive_files:
 
     """ Makes the iterator return every chunk, reserving none for testing """
     def use_no_test_set(self):
-        self.test_set_index = -1
+        self.test_set_index = self.number_of_files # This number is 1 higher than the index of the last file 
 
     """ Changes the dataset to use the next chunk in line to be the test set. 
         Returns False if every chunk has already been used as test-set. """
     def next_cross_validation_distribution(self):
-        self.test_set_index += 1
+        self.test_set_index -= 1
         
-        if(self.test_set_index >= self.number_of_files):
+        if(self.test_set_index < 0):
             return False
         else:
             return True

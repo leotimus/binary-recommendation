@@ -5,6 +5,7 @@ import trainers.topKMetrics as topk
 import smbclient as smbc
 import tensorflow as tf
 import tensorflow_recommenders as tfrs
+import git
 from src.AAUfilename import getAAUfilename
 from getpass import getpass
 
@@ -67,8 +68,11 @@ def clear_verbose_print():
         print("\r" + " "*80, end="\r")
 
 def get_config():
+    repo = git.Repo(search_parent_directories=True)
+    git_commit_sha = repo.head.object.hexsha
     result = {
-                "epochs":EPOCHS,
+        "git_commit_sha": git_commit_sha,
+        "epochs":EPOCHS,
         "learning_rate":LEARNING_RATE,
         "regularization":REGULARIZATION,
         "number_of_factors":NUMBER_OF_FACTORS,

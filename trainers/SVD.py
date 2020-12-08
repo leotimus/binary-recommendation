@@ -10,13 +10,13 @@ from datetime import datetime
 from src.AAUfilename import getAAUfilename
 from getpass import getpass
 
-EPOCHS = 25
+EPOCHS = 10
 LEARNING_RATE = 0.07
 REGULARIZATION = 0.1
 NUMBER_OF_FACTORS = 200
 
 TOPK_BATCH_SIZE = 5000
-EPOCH_ERROR_CALCULATION_FREQUENCY = 4
+EPOCH_ERROR_CALCULATION_FREQUENCY = 1
 VERBOSE = True
 PRINT_EVERY = 1351 # Get more random-looking numbers
 
@@ -37,21 +37,22 @@ if not GRUNDFOS:
     TRANSACTION_COUNT_COLUMN = TRANSACTION_COUNT_SCALE = QUANTITY_SUM_COLUMN = QUANTITY_SUM_SCALE = None
 else:
     # Grundfos Data columns: CUSTOMER_ID,PRODUCT_ID,MATERIAL,TRANSACTION_COUNT,QUANTITY_SUM,FIRST_PURCHASE,LAST_PURCHASE,TIME_DIFF_DAYS
-    #FILE_PATH = r"(NEW)CleanDatasets/NCF/100k/ds2_100k_timeDistributed_{0}.csv"
-    FILE_PATH = r"(NEW)CleanDatasets/NCF/2m(OG)/ds2_OG(2m)_timeDistributed_{0}.csv"
+    FILE_PATH = r"(NEW)CleanDatasets/SVD/100k/ds2_100k_timeDistributed_{0}.csv"
+    #FILE_PATH = r"(NEW)CleanDatasets/NCF/2m(OG)/ds2_OG(2m)_timeDistributed_{0}.csv"
     NUMBER_OF_FILES = 5
     NUMBER_OF_CHUNKS_TO_EAT = 5
     USER_ID_COLUMN = "CUSTOMER_ID"
     ITEM_ID_COLUMN = "PRODUCT_ID"
-    RATING_COLUMN = "RATING_TYPE"
+    #RATING_COLUMN = "RATING_TYPE"
+    RATING_COLUMN = None
 
     TRANSACTION_COUNT_COLUMN = "TRANSACTION_COUNT"
-    TRANSACTION_COUNT_SCALE = 0.6
-    TRANSACTION_COUNT_QUINTILES = (1, 2, 4)
+    TRANSACTION_COUNT_SCALE = 0.5
+    QUANTITY_SUM_QUINTILES = (1, 1, 2)
 
     QUANTITY_SUM_COLUMN = "QUANTITY_SUM"
-    QUANTITY_SUM_SCALE = 0.4
-    QUANTITY_SUM_QUINTILES = (1, 1, 2)
+    QUANTITY_SUM_SCALE = 0.5
+    TRANSACTION_COUNT_QUINTILES = (1, 2, 4)
 
 verbose_print_count = 0
 verbose_print_indicators = r"-\|/-\|/"

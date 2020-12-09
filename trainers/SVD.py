@@ -13,7 +13,7 @@ from getpass import getpass
 EPOCHS = 10
 LEARNING_RATE = 0.07
 REGULARIZATION = 0.1
-NUMBER_OF_FACTORS = 200
+NUMBER_OF_FACTORS = 20
 
 TOPK_BATCH_SIZE = 5000
 EPOCH_ERROR_CALCULATION_FREQUENCY = 1
@@ -463,10 +463,12 @@ def train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bia
 
     test_set = get_test_set(test_dataframe) # Set of (user, item) pairs
     print("Calculating MSE on test set", flush=True)
+    test_set_err = mean_square_error([test_dataframe], user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
 
     print("Calculating top-k results", flush=True)
 
     result = do_topk(user_matrix, item_matrix, test_set, user_ids, item_ids)
+    result["mse"] = test_set_err
 
     print(f"Using config: {get_config()}")
     print(f"Got results: {result}")

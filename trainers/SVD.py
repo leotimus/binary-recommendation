@@ -374,7 +374,7 @@ class grundfos_network_drive_files:
             return True
 
     def get_test_set(self):
-        if self.test_set_index == -1:
+        if self.test_set_index == self.number_of_files:
             raise Exception("There is no test set because use_no_test_set was called. Call next_cross_validation_distribution to set the first chunk to be the test set again.")
 
         test_set = self.files[self.test_set_index]

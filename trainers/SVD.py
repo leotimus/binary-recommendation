@@ -11,8 +11,8 @@ from src.AAUfilename import getAAUfilename
 from getpass import getpass
 from src.benchmarkLogger import benchThread
 
-EPOCHS = 10
-LEARNING_RATE = 0.01
+EPOCHS = 25
+LEARNING_RATE = 0.07
 EMBEDDING_REGULARIZATION = 0.1
 BIAS_REGULARIZATION = 0.01
 NUMBER_OF_EMBEDDINGS = 50

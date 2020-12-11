@@ -25,6 +25,8 @@ PRINT_EVERY = 1351 # Get more random-looking numbers
 GRUNDFOS = True
 EVALUATE = False
 
+BENCHMARK_FILE_NAME = "svd-benchmark.csv"
+
 # The data is expected in chunks, either in separate files or in a single
 # file that pandas will then split to the size specified. 
 # NB: The NUMBER_OF_CHUNKS_TO_EAT is for training. Another chunk after that
@@ -461,6 +463,10 @@ def train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bia
             print(f"             And on the test set MSE: {test_set_err}")
         else:
             print (f"::::EPOCH {i:=3}::::    {current_time}", flush=True)
+
+    if bmThread != None:
+        bmThread.active = 0 #deactivate the thread, will exit on the next while loop cycle
+        bmThread.join()  # wait for it to exit on its own, since its daemon as a precaution
     
     result = {}
 
@@ -502,12 +508,17 @@ def get_data():
     return dataset
 
 if __name__ == "__main__":
-    bmThread = benchThread(1,1,'TopK100kNice.csv') #create the thread
-    bmThread.start() #and start it
     print(get_config())
+    
     print("Loading data...")
     dataset = get_data()
     dataset.use_no_test_set() # Don't hold any chunk back as the test set, so that every chunk can be digested.
+
+    if BENCHMARK_FILE_NAME != None:
+        bmThread = benchThread(1,1,BENCHMARK_FILE_NAME) #create the thread
+        bmThread.start() #and start it
+    else:
+        bmThread = None
 
     print("-"*16)
     print("Digesting....", flush=True)

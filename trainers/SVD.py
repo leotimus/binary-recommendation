@@ -9,19 +9,21 @@ import git
 from datetime import datetime
 from src.AAUfilename import getAAUfilename
 from getpass import getpass
+from src.benchmarkLogger import benchThread
 
 EPOCHS = 10
-LEARNING_RATE = 0.35
+LEARNING_RATE = 0.01
 EMBEDDING_REGULARIZATION = 0.1
 BIAS_REGULARIZATION = 0.01
 NUMBER_OF_EMBEDDINGS = 50
 
 TOPK_BATCH_SIZE = 5000
-EPOCH_ERROR_CALCULATION_FREQUENCY = 1
+EPOCH_ERROR_CALCULATION_FREQUENCY = 100
 VERBOSE = True
 PRINT_EVERY = 1351 # Get more random-looking numbers
 
 GRUNDFOS = True
+EVALUATE = False
 
 # The data is expected in chunks, either in separate files or in a single
 # file that pandas will then split to the size specified. 
@@ -460,22 +462,23 @@ def train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bia
         else:
             print (f"::::EPOCH {i:=3}::::    {current_time}", flush=True)
     
-    print("-"*16)
-    print("Evaluating...", flush=True)
+    result = {}
 
+    if EVALUATE:
+        print("-"*16)
+        print("Evaluating...", flush=True)
+        test_set = get_test_set(test_dataframe) # Set of (user, item) pairs
+        print("Calculating MSE on test set", flush=True)
+        test_set_err = mean_square_error([test_dataframe], user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
 
-    test_set = get_test_set(test_dataframe) # Set of (user, item) pairs
-    print("Calculating MSE on test set", flush=True)
-    test_set_err = mean_square_error([test_dataframe], user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
+        print("Calculating top-k results", flush=True)
 
-    print("Calculating top-k results", flush=True)
+        result = do_topk(user_matrix, item_matrix, test_set, user_ids, item_ids)
+        result["mse"] = test_set_err
 
-    result = do_topk(user_matrix, item_matrix, test_set, user_ids, item_ids)
-    result["mse"] = test_set_err
-
-    print(f"Using config: {get_config()}")
-    print(f"Got results: {result}")
-    print("-"*16)
+        print(f"Using config: {get_config()}")
+        print(f"Got results: {result}")
+        print("-"*16)
 
     return result
 
@@ -499,6 +502,8 @@ def get_data():
     return dataset
 
 if __name__ == "__main__":
+    bmThread = benchThread(1,1,'TopK100kNice.csv') #create the thread
+    bmThread.start() #and start it
     print(get_config())
     print("Loading data...")
     dataset = get_data()

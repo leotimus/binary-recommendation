@@ -23,7 +23,7 @@ VERBOSE = True
 PRINT_EVERY = 1351 # Get more random-looking numbers
 
 GRUNDFOS = True
-EVALUATE = False
+EVALUATE = True
 
 BENCHMARK_FILE_NAME = "svd-benchmark.csv"
 

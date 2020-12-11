@@ -12,8 +12,9 @@ from getpass import getpass
 
 EPOCHS = 10
 LEARNING_RATE = 0.35
-REGULARIZATION = 0.1
-NUMBER_OF_FACTORS = 50
+EMBEDDING_REGULARIZATION = 0.1
+BIAS_REGULARIZATION = 0.01
+NUMBER_OF_EMBEDDINGS = 50
 
 TOPK_BATCH_SIZE = 5000
 EPOCH_ERROR_CALCULATION_FREQUENCY = 1
@@ -78,8 +79,8 @@ def get_config():
     result = {
         "epochs":EPOCHS,
         "learning_rate":LEARNING_RATE,
-        "regularization":REGULARIZATION,
-        "number_of_factors":NUMBER_OF_FACTORS,
+        "regularization":EMBEDDING_REGULARIZATION,
+        "number_of_embeddings":NUMBER_OF_EMBEDDINGS,
         "file_path":FILE_PATH,
         "git_commit_sha": git_commit_sha
     }
@@ -196,12 +197,12 @@ def  fit_model(dataset, user_matrix, item_matrix, user_bias_vector, item_bias_ve
             if error > 200:
                 print(f"Warning! Error is out of whack! Value: {error}")
 
-            item_vector = item_vector + LEARNING_RATE * (error * user_vector - REGULARIZATION * item_vector)
-            user_vector = user_vector + LEARNING_RATE * (error * item_vector - REGULARIZATION * user_vector)
-            user_bias_vector[user] = user_bias_vector[user] + LEARNING_RATE * (error * user_bias_vector[user] - REGULARIZATION * user_bias_vector[user])
-            item_bias_vector[item] = item_bias_vector[item] + LEARNING_RATE * (error * item_bias_vector[item] - REGULARIZATION * item_bias_vector[item])
+            item_vector = item_vector + LEARNING_RATE * (error * user_vector -  EMBEDDING_REGULARIZATION * item_vector)
+            user_vector = user_vector + LEARNING_RATE * (error * item_vector -  EMBEDDING_REGULARIZATION * user_vector)
+            user_bias_vector[user] = user_bias_vector[user] + LEARNING_RATE * (error * user_bias_vector[user] - BIAS_REGULARIZATION * user_bias_vector[user])
+            item_bias_vector[item] = item_bias_vector[item] + LEARNING_RATE * (error * item_bias_vector[item] - BIAS_REGULARIZATION * item_bias_vector[item])
 
-            for n in range(0, NUMBER_OF_FACTORS):
+            for n in range(0, NUMBER_OF_EMBEDDINGS):
                 item_matrix[item, n] = item_vector[n]
                 user_matrix[user, n] = user_vector[n]
 
@@ -436,8 +437,8 @@ def train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bia
     print(f"number of items: {number_of_items}")
     print(f"global bias: {global_bias}", flush=True)
     
-    user_matrix = np.random.random((number_of_users, NUMBER_OF_FACTORS)) * (1/NUMBER_OF_FACTORS)
-    item_matrix = np.random.random((number_of_items, NUMBER_OF_FACTORS)) * (1/NUMBER_OF_FACTORS)
+    user_matrix = np.random.random((number_of_users, NUMBER_OF_EMBEDDINGS)) * (1/NUMBER_OF_EMBEDDINGS)
+    item_matrix = np.random.random((number_of_items, NUMBER_OF_EMBEDDINGS)) * (1/NUMBER_OF_EMBEDDINGS)
     user_bias_vector = np.zeros(number_of_users)
     item_bias_vector = np.zeros(number_of_items)
 

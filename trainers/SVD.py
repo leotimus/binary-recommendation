@@ -11,7 +11,7 @@ from src.AAUfilename import getAAUfilename
 from getpass import getpass
 
 EPOCHS = 10
-LEARNING_RATE = 0.07
+LEARNING_RATE = 0.35
 REGULARIZATION = 0.1
 NUMBER_OF_FACTORS = 50
 

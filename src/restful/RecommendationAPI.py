@@ -4,6 +4,7 @@ from flask import jsonify
 from flask import request
 
 from src.models import RModel
+from src.models.NCFModel import NCFModel
 from src.models.NeuMFModel import NeuMFModel
 
 app = Flask(__name__)
@@ -30,7 +31,7 @@ def getUsers():
 @app.route('/api/models', methods=['GET'])
 def getSupportedModels():
   # Call model & feed the recommendation here
-  return str('MF, NeuMF, FM, NeuFM')
+  return str('NeuMFModel, NCFModel')
 
 @app.route('/api/models/<operation>/<model>', methods=['POST'])
 # operation in [train, active...]
@@ -41,16 +42,24 @@ def operateOnModel(operation, model):
 
   global activeModel
   if operation == 'active':
-
-    activeModel = NeuMFModel()
+    activeModel = getModelByName(model)
     activeModel.restoreFromLatestCheckPoint()
     return {'result': 'ok', 'active model': model}
 
   elif operation == 'train':
+    trainingModel = getModelByName(model)
+    if not trainingModel.readyToTrain():
+      return {'result': 'error', 'message': 'model not ready to train'}
 
-    trainingModel = NeuMFModel()
     return trainingModel.train(data['path'], data['rowLimit'], {})
 
   return 'Triggered operation {} on {} model without specific return value'.format(operation, model)
+
+def getModelByName(model: str) -> RModel:
+  if model == 'NeuMFModel':
+    return NeuMFModel()
+  if model == 'NCFModel':
+    return NCFModel()
+  return None
 
 app.run()

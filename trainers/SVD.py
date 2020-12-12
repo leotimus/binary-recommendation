@@ -430,7 +430,6 @@ def do_topk(user_matrix, item_matrix, test_idset, train_idset, user_ids, item_id
     for batch in np.array_split(user_matrix, TOPK_BATCH_SIZE):
         tensor_batch = tf.convert_to_tensor(batch, dtype=np.float32)
         raw_predictions = topk_predicter(tensor_batch)
-        print_verbose(f"Batch {batch}...")
         for u in range(len(batch)):
             predictions.append((user_id, [(raw_predictions[0][u][j], raw_predictions[1][u][j].numpy()) for j in range(len(raw_predictions[0][u]))]))
             user_id+=1
@@ -537,7 +536,8 @@ if __name__ == "__main__":
 
     dataset.next_cross_validation_distribution() # Use the first chunk as the test set
     
-    results = []
+    test_set_results = []
+    train_set_results = []
 
     x_val=1
     while True:
@@ -547,12 +547,15 @@ if __name__ == "__main__":
         x_val+=1
 
         result = train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bias, bmThread)
-        results.append(result)
+        test_set_results.append(result["test_set"])
+        train_set_results.append(result["train_set"])
 
         if not dataset.next_cross_validation_distribution():
             break
     
-    result = topk.getAverage(results)
+    test_set_result = topk.getAverage(test_set_results)
+    train_set_result = topk.getAverage(train_set_results)
+    result = {"test_set":test_set_result, "train_set": train_set_result}
 
     print("="*16)
     print(f"Using config: {get_config()}")

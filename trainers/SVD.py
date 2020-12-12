@@ -439,7 +439,7 @@ def do_topk(user_matrix, item_matrix, test_idset, train_idset, user_ids, item_id
 
     return {"test_set" : test_set_result, "train_set": train_set_result}
 
-def train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bias):
+def train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bias, bmThread):
     number_of_users = uid_max + 1
     number_of_items = iid_max + 1
 
@@ -543,7 +543,7 @@ if __name__ == "__main__":
         print("="*16)
         x_val+=1
 
-        result = train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bias)
+        result = train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bias, bmThread)
         results.append(result)
 
         if not dataset.next_cross_validation_distribution():

@@ -406,13 +406,15 @@ class grundfos_network_drive_files:
         self.next_file_index += 1
         return chunk
 
-def get_test_set(test_dataframe):
-	result = set()
-	for _, row in test_dataframe.iterrows():
-		result.add((row[USER_ID_COLUMN], row[ITEM_ID_COLUMN]))
-	return result
+def get_idset(chunks):
+    result = set()
+    for chunk in chunks:
+        
+        for _, row in chunk.iterrows():
+            result.add((row[USER_ID_COLUMN], row[ITEM_ID_COLUMN]))
+    return result
 
-def do_topk(user_matrix, item_matrix, test_set, user_ids, item_ids):
+def do_topk(user_matrix, item_matrix, test_idset, train_idset, user_ids, item_ids):
     actual_user_ids = user_ids.keys() # The reader is asked to recall that user_ids is a dict that maps the actual ids to our own made-up sequential integer ids
     actual_item_ids = item_ids.keys()
 
@@ -431,7 +433,10 @@ def do_topk(user_matrix, item_matrix, test_set, user_ids, item_ids):
             predictions.append((user_id, [(raw_predictions[0][u][j], raw_predictions[1][u][j].numpy()) for j in range(len(raw_predictions[0][u]))]))
             user_id+=1
     
-    return topk.topKMetrics(predictions, test_set, actual_user_ids, actual_item_ids)
+    test_set_result = topk.topKMetrics(predictions, test_idset, actual_user_ids, actual_item_ids)
+    train_set_result = topk.topKMetrics(predictions, train_idset, actual_user_ids, actual_item_ids)
+
+    return {"test_set" : test_set_result, "train_set": train_set_result}
 
 def train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bias):
     number_of_users = uid_max + 1
@@ -473,13 +478,14 @@ def train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bia
     if EVALUATE:
         print("-"*16)
         print("Evaluating...", flush=True)
-        test_set = get_test_set(test_dataframe) # Set of (user, item) pairs
+        test_idset = get_idset([test_dataframe]) # Set of (user, item) pairs
+        train_idset = get_idset(dataset)
         print("Calculating MSE on test set", flush=True)
         test_set_err = mean_square_error([test_dataframe], user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
 
         print("Calculating top-k results", flush=True)
 
-        result = do_topk(user_matrix, item_matrix, test_set, user_ids, item_ids)
+        result = do_topk(user_matrix, item_matrix, test_idset, train_idset, user_ids, item_ids)
         result["mse"] = test_set_err
 
         print(f"Using config: {get_config()}")

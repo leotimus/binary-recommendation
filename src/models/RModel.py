@@ -16,7 +16,7 @@ class RModel:
   # METRICS = ['mse', 'mae', 'false_negatives', 'false_positives', 'true_negatives', 'true_positives', 'binary_accuracy']
   METRICS = ['mse', 'mae', 'binary_accuracy']
 
-  def __init__(self, moduleName, batchSize=1024 * 16):
+  def __init__(self, moduleName):
     self.modelName = moduleName
 
     self.modelStructurePath = 'export/{}/model.png'.format(self.modelName)
@@ -31,7 +31,6 @@ class RModel:
 
     self.numFactor = 32
     self.epochs = 10
-    # self.batchSize = batchSize
     self.validationSteps = 20
     self._model = None
 
@@ -145,9 +144,13 @@ class RModel:
     return numItem, numUser, transactionDf
 
   def getPredictDataSet(self, customerId):
+    predictionDf = self.getPredictDataFrame(customerId)
+    return self.bootstrapDataset(predictionDf, shuffle=False)
+
+  def getPredictDataFrame(self, customerId):
     predictionDf = pd.read_pickle(self.modelProducts)
     predictionDf[self.CUSTOMER_ID] = customerId
-    return self.bootstrapDataset(predictionDf, shuffle=False)
+    return predictionDf
 
   def restoreFromLatestCheckPoint(self):
     self._model = tf.keras.models.load_model(self.checkpointPath)
@@ -196,3 +199,6 @@ class RModel:
     if strategy is not None and self.isMaster(strategy.cluster_resolver.task_type,
                                               strategy.cluster_resolver.task_id) is False:
       tf.io.gfile.rmtree(os.path.dirname(self.getSlaveTempDir(strategy.cluster_resolver.task_id)))
+
+  def readyToTrain(self):
+    return True

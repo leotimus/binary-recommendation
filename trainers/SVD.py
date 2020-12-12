@@ -25,7 +25,7 @@ PRINT_EVERY = 1351 # Get more random-looking numbers
 GRUNDFOS = True
 EVALUATE = True
 
-BENCHMARK_FILE_NAME = "svd-benchmark.csv"
+BENCHMARK_FILE_NAME = "../benchmarks/svd-benchmark-{0}.csv"
 
 # The data is expected in chunks, either in separate files or in a single
 # file that pandas will then split to the size specified. 
@@ -522,7 +522,8 @@ if __name__ == "__main__":
     dataset.use_no_test_set() # Don't hold any chunk back as the test set, so that every chunk can be digested.
 
     if BENCHMARK_FILE_NAME != None:
-        bmThread = benchThread(1,1,BENCHMARK_FILE_NAME) #create the thread
+        currentdate = datetime.now().strftime("%d-%B-%H.%M")
+        bmThread = benchThread(1,1,BENCHMARK_FILE_NAME.format(currentdate)) #create the thread
         bmThread.start() #and start it
     else:
         bmThread = None

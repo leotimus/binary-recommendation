@@ -5,7 +5,7 @@ from src.benchmarkLogger import benchThread
 from trainers.model_utils import getOptimizer
 import time
 from trainers.loadBinaryMovieLens import *
-from trainers.topKMetrics import *
+from trainers.topKmetrics import *
 import tensorflow_recommenders as tfrs
 import sys
 from getpass import getpass
@@ -16,17 +16,19 @@ import os
 
 
 class TwoTowerModel(tf.keras.Model):
-	def __init__(self, embedDim, nbrItem, nbrUser, userKey, itemKey, usersId, itemsId, eval_batch_size = 8000, loss = None):
+	def __init__(self, embedDim, nbrItem, nbrUser, userKey, itemKey, usersId, itemsId, eval_batch_size = 8000, loss = None, rdZero = False, resKey = None, semb = 100):
 		super().__init__(self)
 		self.embedDim = embedDim
 		self.nbrItem = nbrItem
 		self.nbrUser = nbrUser
 		self.userKey = userKey
 		self.itemKey = itemKey
-		self.streamingLayer = tfrs.layers.factorized_top_k.Streaming()
+		self.resKey = resKey
+		self.bruteForceLayer = tfrs.layers.factorized_top_k.Streaming()
 		self.eval_batch_size = eval_batch_size
+		self.rdZero = rdZero
 		#print(nbrItem)
-
+		
 		self.userTowerIn = tf.keras.layers.experimental.preprocessing.StringLookup(vocabulary = usersId)
 		self.userTowerOut = tf.keras.layers.Embedding(nbrUser+2, embedDim)
 		self.itemTowerIn = tf.keras.layers.experimental.preprocessing.StringLookup(vocabulary = itemsId)
@@ -34,8 +36,8 @@ class TwoTowerModel(tf.keras.Model):
 		
 		#self.userTower = tf.keras.Sequential([self.userTowerIn, self.userTowerOut, tf.keras.layers.Flatten(), tf.keras.layers.Dense(20)])
 		#self.itemTower = tf.keras.Sequential([self.itemTowerIn, self.itemTowerOut, tf.keras.layers.Flatten(), tf.keras.layers.Dense(20)])
-		self.userTower = tf.keras.Sequential([self.userTowerIn, self.userTowerOut])
-		self.itemTower = tf.keras.Sequential([self.itemTowerIn, self.itemTowerOut])
+		self.userTower = tf.keras.Sequential([self.userTowerIn, self.userTowerOut, tf.keras.layers.Dense(semb)])
+		self.itemTower = tf.keras.Sequential([self.itemTowerIn, self.itemTowerOut, tf.keras.layers.Dense(semb)])
 		
 		self.outputLayer = tf.keras.layers.Dot(axes=-1)
 		self.task = tfrs.tasks.Retrieval(loss = loss)
@@ -52,17 +54,17 @@ class TwoTowerModel(tf.keras.Model):
 	
 	def call(self, info):
 		usersCaracteristics = self.userTower(info)
-		return self.streamingLayer(usersCaracteristics)
+		return self.bruteForceLayer(usersCaracteristics)
 	
 	def setCandidates(self, items, k):
-		self.streamingLayer = tfrs.layers.factorized_top_k.BruteForce(k = k)
-		self.streamingLayer.index(
+		self.bruteForceLayer = tfrs.layers.factorized_top_k.BruteForce(k = k)
+		self.bruteForceLayer.index(
 						candidates = items.batch(self.eval_batch_size).map(self.itemTower),
 						identifiers = items
 					)
 	
 	"""def getTopK(self, users, k):
-		self.streamingLayer(
+		self.bruteForceLayer(
 					query_embeddings = self.userTower(users), 
 					k = k
 				)"""
@@ -77,8 +79,12 @@ class TwoTowerModel(tf.keras.Model):
 			#pred = self(info, training = True)
 			#loss = self.compiled_loss(info[self.resKey], pred)
 			usersCaracteristics, itemCaracteristics = self.computeEmb(info)
-			loss = self.task(usersCaracteristics, itemCaracteristics, compute_metrics = False, training = True, candidate_ids = info[self.itemKey])
-
+			if self.rdZero:
+				pred = tf.keras.activations.sigmoid(self.outputLayer([usersCaracteristics, itemCaracteristics]))
+				loss = self.compiled_loss(info[self.resKey], pred)
+			else:
+				loss = self.task(usersCaracteristics, itemCaracteristics, compute_metrics = False, training = True, candidate_ids = info[self.itemKey])
+		
 		#print(self.trainable_variables)
 		gradients = tape.gradient(loss, self.trainable_variables)
 		self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
@@ -108,7 +114,7 @@ def splitTrainTest(data, ratio):
 	return (train, test)
 	
 
-def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, batchSize):
+def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, batchSize, randomZero = False, rdZeroFilenames = None, testBatchSize = 5000, semb = 64):
 	#Load the files for cross-validation.
 	dataSets = []
 	username = input("username:")
@@ -117,9 +123,14 @@ def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, 
 	for filename in filenames:
 		dataSets.append(gfData(filename, username, psw))
 	
+	rdZeroDataSets = []
+	if randomZero:
+		for filename in rdZeroFilenames:
+			rdZeroDataSets.append(gfData(filename, username, psw, rdZero = True))
+
 	print("Loading done.")
 	
-	#getting all unique users id and materials id
+	#getting all unique users id and materials id + extracting datasets
 	usersId = []
 	matId = []
 	datas = []
@@ -131,18 +142,38 @@ def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, 
 	matId = pd.unique(pd.concat(matId))
 	dataSets = datas
 	
+	if randomZero:
+		datas = []
+		for dataSet in rdZeroDataSets:
+			datas.append(dataSet["ratings"])
+
+		dataSets, testDataSets = datas, dataSets #make the datasets with randomly added zeros the training datasets
+
+
+
+
+
 	#cross-validation
 	res = []
 	for i in range(len(dataSets)):
 		print("cross validation it: " + str(i+1) + "/" + str(len(dataSets)))
 		#creating test set and training set
 		testData = dataSets.pop(0)
+
+		if randomZero:
+			testData, fakeTestData = testDataSets.pop(0), testData #change to make the test set wanted
+
 		testSet = tf.data.Dataset.from_tensor_slices(dict(testData))
 		trainSet = tf.data.Dataset.from_tensor_slices(dict(pd.concat(dataSets, ignore_index=True)))
 		
+		if randomZero:
+			#make the change of test set invisible for the rest of the function
+			testDataSets.append(testData)
+			testData = fakeTestData
+
 		#creating model
-		model = TwoTowerModel(embNum, len(matId), len(usersId), "CUSTOMER_ID", "MATERIAL", usersId, matId, eval_batch_size = batchSize, loss = loss)
-		model.compile(optimizer = getOptimizer(optimiser, learningRate = learningRate))
+		model = TwoTowerModel(embNum, len(matId), len(usersId), "CUSTOMER_ID", "MATERIAL", usersId, matId, eval_batch_size = batchSize, loss = loss, rdZero = randomZero, resKey = "RATING_TYPE", semb = semb)
+		model.compile(optimizer = getOptimizer(optimiser, learningRate = learningRate), loss = "MSE") #tf.keras.losses.BinaryCrossentropy())
 		
 		#preparing trainingSet
 		trainSet = trainSet.shuffle(len(trainSet), reshuffle_each_iteration=False)
@@ -157,7 +188,7 @@ def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, 
 		
 		#topk = topKRatings(k, model, usersId, matId, "two tower")
 		model.setCandidates(tf.data.Dataset.from_tensor_slices(matId), k)
-		pred = model.predict(usersId)
+		pred = model.predict(usersId, batch_size = testBatchSize)
 		topk = []
 		counter = 0
 		for user in tf.data.Dataset.from_tensor_slices(usersId):
@@ -201,13 +232,16 @@ if __name__ == "__main__":
 	splitRatio = 0.8
 	loss = None
 	#filename = [r"(NEW)CleanDatasets\TT\2m(OG)\ds2_OG(2m)_timeDistributed_1.csv", r"(NEW)CleanDatasets\TT\2m(OG)\ds2_OG(2m)_timeDistributed_2.csv", r"(NEW)CleanDatasets\TT\2m(OG)\ds2_OG(2m)_timeDistributed_3.csv", r"(NEW)CleanDatasets\TT\2m(OG)\ds2_OG(2m)_timeDistributed_4.csv", r"(NEW)CleanDatasets\TT\2m(OG)\ds2_OG(2m)_timeDistributed_5.csv"]
-	filename = [r"(NEW)CleanDatasets\TT\100k\ds2_100k_timeDistributed_1.csv", r"(NEW)CleanDatasets\TT\100k\ds2_100k_timeDistributed_2.csv", r"(NEW)CleanDatasets\TT\100k\ds2_100k_timeDistributed_3.csv", r"(NEW)CleanDatasets\TT\100k\ds2_100k_timeDistributed_4.csv", r"(NEW)CleanDatasets\TT\100k\ds2_100k_timeDistributed_5.csv"]
-	#filename = [r"(NEW)CleanDatasets\TT\1m\ds2_1m_timeDistributed_1.csv", r"(NEW)CleanDatasets\TT\1m\ds2_1m_timeDistributed_2.csv", r"(NEW)CleanDatasets\TT\1m\ds2_1m_timeDistributed_3.csv", r"(NEW)CleanDatasets\TT\1m\ds2_1m_timeDistributed_4.csv", r"(NEW)CleanDatasets\TT\1m\ds2_1m_timeDistributed_5.csv"]
-	#filename = [r"(NEW)CleanDatasets\TT\10m\ds2_10m_timeDistributed_1.csv", r"(NEW)CleanDatasets\TT\10m\ds2_10m_timeDistributed_2.csv", r"(NEW)CleanDatasets\TT\10m\ds2_10m_timeDistributed_3.csv", r"(NEW)CleanDatasets\TT\10m\ds2_10m_timeDistributed_4.csv", r"(NEW)CleanDatasets\TT\10m\ds2_10m_timeDistributed_5.csv"]
+	#rdZeroFilename = [r"(NEW)CleanDatasets\NCF\2m(OG)\ds2_OG(2m)_timeDistributed_1.csv", r"(NEW)CleanDatasets\NCF\2m(OG)\ds2_OG(2m)_timeDistributed_2.csv", r"(NEW)CleanDatasets\NCF\2m(OG)\ds2_OG(2m)_timeDistributed_3.csv", r"(NEW)CleanDatasets\NCF\2m(OG)\ds2_OG(2m)_timeDistributed_4.csv", r"(NEW)CleanDatasets\NCF\2m(OG)\ds2_OG(2m)_timeDistributed_5.csv"]
+	filename = [r"(NEW)CleanDatasets\TT\1m\ds2_1m_timeDistributed_1.csv", r"(NEW)CleanDatasets\TT\1m\ds2_1m_timeDistributed_2.csv", r"(NEW)CleanDatasets\TT\1m\ds2_1m_timeDistributed_3.csv", r"(NEW)CleanDatasets\TT\1m\ds2_1m_timeDistributed_4.csv", r"(NEW)CleanDatasets\TT\1m\ds2_1m_timeDistributed_5.csv"]
+	rdZeroFilename = [r"(NEW)CleanDatasets\NCF\1m\ds2_1m_timeDistributed_1.csv", r"(NEW)CleanDatasets\NCF\1m\ds2_1m_timeDistributed_2.csv", r"(NEW)CleanDatasets\NCF\1m\ds2_1m_timeDistributed_3.csv", r"(NEW)CleanDatasets\NCF\1m\ds2_1m_timeDistributed_4.csv", r"(NEW)CleanDatasets\NCF\1m\ds2_1m_timeDistributed_5.csv"]
 	epoch = 3
+	semb = 125
 	embNum = 300
 	batchSize = 5000
+	testBatchSize = 5000
 	k = 10
+	randomZero = False
 	for i in range(len(sys.argv)):
 		if sys.argv[i] == "data":
 			filename = sys.argv[i+1]
@@ -223,16 +257,30 @@ if __name__ == "__main__":
 			k = float(sys.argv[i+1])
 		elif sys.argv[i] == "opti":
 			optimiser = sys.argv[i+1]
-	
-	res = crossValidation(filename, k, learningRate, optimiser, loss, epoch, embNum, batchSize)
+		elif sys.argv[i] == "randomZero":
+			randomZero = True
+
+	res = crossValidation(
+		filename,
+		k,
+		learningRate,
+		optimiser,
+		loss,
+		epoch,
+		embNum,
+		batchSize,
+		rdZeroFilenames = rdZeroFilename,
+		randomZero = randomZero,
+		testBatchSize = testBatchSize,
+		semb = semb
+		)
 	print("Average metrics:", res, flush=True)
-	#with open("../result/twoTowerResult", "a") as f:
-		#f.write("k: " + str(k) + ", learning rate: " + str(learningRate) + ", optimiser: " + optimiser + ", splitRatio: " + str(splitRatio) + ", loss: " + str(loss) + ", filename: " + str(filename) + ", epoch: " + str(epoch) + "nbr embedings: " + str(embNum) + ", batchSize: " + str(batchSize) + "\n")
-		#f.write(str(res) + "\n")
+	with open("../result/twoTowerResult_deep", "a") as f:
+		f.write("k: " + str(k) + ", learning rate: " + str(learningRate) + ", optimiser: " + optimiser + ", splitRatio: " + str(splitRatio) + ", loss: " + str(loss) + ", filename: " + str(filename) + ", use randomly added zeros: " + str(randomZero) + ", randomly added zeros filename: " + str(rdZeroFilename) + ", epoch: " + str(epoch) + ", nbr embedings: " + str(embNum) + ", second emb: " + str(semb) + ", batchSize: " + str(batchSize) + "\n")
+		f.write(str(res) + "\n")
 	bmThread.active = 0 #deactivate the thread, will exit on the next while loop cycle
 	bmThread.join()  # wait for it to exit on its own, since its daemon as a precaution
 	print("Done",flush=True)
-	#raise Exception
 
 
 

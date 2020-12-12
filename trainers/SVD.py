@@ -195,20 +195,21 @@ def  fit_model(dataset, user_matrix, item_matrix, user_bias_vector, item_bias_ve
 
             item_vector = item_matrix[item, :]
             user_vector = user_matrix[user, :]
+            user_bias = user_bias_vector[user]
+            item_bias = item_bias_vector[item]
 
-            error = get_rating(row) - predict(user, item, user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias)
+            error = get_rating(row) - (user_bias + item_bias + global_bias + np.dot(item_vector, user_vector))
 
             if error > 200:
                 print(f"Warning! Error is out of whack! Value: {error}")
 
             item_vector = item_vector + LEARNING_RATE * (error * user_vector -  EMBEDDING_REGULARIZATION * item_vector)
             user_vector = user_vector + LEARNING_RATE * (error * item_vector -  EMBEDDING_REGULARIZATION * user_vector)
-            user_bias_vector[user] = user_bias_vector[user] + LEARNING_RATE * (error * user_bias_vector[user] - BIAS_REGULARIZATION * user_bias_vector[user])
-            item_bias_vector[item] = item_bias_vector[item] + LEARNING_RATE * (error * item_bias_vector[item] - BIAS_REGULARIZATION * item_bias_vector[item])
+            user_bias_vector[user] = user_bias + LEARNING_RATE * (error * user_bias - BIAS_REGULARIZATION * user_bias)
+            item_bias_vector[item] = item_bias + LEARNING_RATE * (error * item_bias - BIAS_REGULARIZATION * item_bias)
 
-            for n in range(0, NUMBER_OF_EMBEDDINGS):
-                item_matrix[item, n] = item_vector[n]
-                user_matrix[user, n] = user_vector[n]
+            item_matrix[item, :] = item_vector
+            user_matrix[user, :] = user_vector
 
             if index%PRINT_EVERY == 0:
                 print_verbose(f"training... index: {index} chunk: {i}")

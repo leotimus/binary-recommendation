@@ -6,3 +6,5 @@ export
 checkpoints
 src/__pycache__
 src/restful/__pycache__
+src/restful/oauth2/__pycache__
+db.sqlite

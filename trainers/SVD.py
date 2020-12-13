@@ -42,16 +42,17 @@ if not GRUNDFOS:
     TRANSACTION_COUNT_COLUMN = TRANSACTION_COUNT_SCALE = QUANTITY_SUM_COLUMN = QUANTITY_SUM_SCALE = None
 else:
     # Grundfos Data columns: CUSTOMER_ID,PRODUCT_ID,MATERIAL,TRANSACTION_COUNT,QUANTITY_SUM,FIRST_PURCHASE,LAST_PURCHASE,TIME_DIFF_DAYS
-    FILE_PATH = r"(NEW)CleanDatasets/NCF/100k/ds2_100k_timeDistributed_{0}.csv"
+    #FILE_PATH = r"(NEW)CleanDatasets/NCF/100k/ds2_100k_timeDistributed_{0}.csv"
     #FILE_PATH = r"(NEW)CleanDatasets/NCF/500k/ds2_500k_timeDistributed_{0}.csv"
     #FILE_PATH = r"(NEW)CleanDatasets/NCF/1m/ds2_1m_timeDistributed_{0}.csv"
     #FILE_PATH = r"(NEW)CleanDatasets/NCF/2m(OG)/ds2_OG(2m)_timeDistributed_{0}.csv"
+    FILE_PATH = r"(NEW)CleanDatasets/SVD/500k/ds2_500k_timeDistributed_{0}.csv"
     NUMBER_OF_FILES = 5
     NUMBER_OF_CHUNKS_TO_EAT = 5
     USER_ID_COLUMN = "CUSTOMER_ID"
     ITEM_ID_COLUMN = "PRODUCT_ID"
-    RATING_COLUMN = "RATING_TYPE"
-    #RATING_COLUMN = None
+    #RATING_COLUMN = "RATING_TYPE"
+    RATING_COLUMN = None
 
     TRANSACTION_COUNT_COLUMN = "TRANSACTION_COUNT"
     TRANSACTION_COUNT_SCALE = 0.5

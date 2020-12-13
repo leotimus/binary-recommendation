@@ -98,19 +98,19 @@ class RModel:
     strategy = None
     if distributedConfig is None:
       batchSize = self.epochs
-      self._model = self.buildModel(numUser, numItem, self.numFactor)
+      self.model = self.buildModel(numUser, numItem, self.numFactor)
     else:
       numWorkers = len(distributedConfig['cluster']['worker'])
       batchSize = self.epochs * numWorkers
       strategy = tf.distribute.experimental.MultiWorkerMirroredStrategy()
       with strategy.scope():
-        self._model = self.buildModel(numUser, numItem, self.numFactor)
+        self.model = self.buildModel(numUser, numItem, self.numFactor)
 
     try:
-      model_to_dot(self._model, show_shapes=True).write(path=self.modelStructurePath, prog='dot', format='png')
+      model_to_dot(self.model, show_shapes=True).write(path=self.modelStructurePath, prog='dot', format='png')
     except:
       print('Could not plot model in dot format:', sys.exc_info()[0])
-    self._model.summary()
+    self.model.summary()
 
     # train data set
     trainDataset = self.bootstrapDataset(train, batchSize=batchSize)
@@ -118,12 +118,12 @@ class RModel:
     testDataset = self.bootstrapDataset(test, batchSize=batchSize, shuffle=False)
 
     if distributedConfig is None:
-      history = self._model.fit(trainDataset, validation_data=testDataset, epochs=self.epochs)
+      history = self.model.fit(trainDataset, validation_data=testDataset, epochs=self.epochs)
     else:
-      history = self._model.fit(trainDataset, validation_data=testDataset, epochs=self.epochs,
+      history = self.model.fit(trainDataset, validation_data=testDataset, epochs=self.epochs,
                                 steps_per_epoch=len(trainDataset) / self.epochs / numWorkers, validation_steps=self.validationSteps)
 
-    self._model.save(self.getModelSaveLocation(strategy))
+    self.model.save(self.getModelSaveLocation(strategy))
 
     self.plot(history, metricDict)
 
@@ -131,7 +131,7 @@ class RModel:
     _, val = train_test_split(train, test_size=0.2)
     valDataset = self.bootstrapDataset(val, shuffle=False)
 
-    evaluatedMetric = list(self._model.evaluate(valDataset, steps=20))
+    evaluatedMetric = list(self.model.evaluate(valDataset, steps=20))
 
     self.clearSlaveTempDir(strategy)
     return {'result': 'completed', 'metrics': evaluatedMetric}
@@ -153,12 +153,12 @@ class RModel:
     return predictionDf
 
   def restoreFromLatestCheckPoint(self):
-    self._model = tf.keras.models.load_model(self.checkpointPath)
+    self.model = tf.keras.models.load_model(self.checkpointPath)
 
   def predictForUser(self, customerId, numberOfItem=5):
 
     predictDataSet = self.getPredictDataSet(customerId)
-    predictions = self._model.predict(predictDataSet)
+    predictions = self.model.predict(predictDataSet)
 
     i = 0
     extractFeatures = {}

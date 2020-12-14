@@ -224,7 +224,7 @@ def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, 
 
 
 if __name__ == "__main__":
-	bmThread = benchThread(1,1,'TopK100kNice.csv') #create the thread
+	bmThread = benchThread(0.01,1,'TopK100kNewTime.csv') #create the thread
 	bmThread.start() #and start it
 	print(sys.argv)
 	learningRate = 0.1

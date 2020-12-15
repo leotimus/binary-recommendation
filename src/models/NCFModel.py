@@ -1,4 +1,6 @@
 import pandas as pd
+from pandas import DataFrame
+
 from src.models.RModel import RModel
 
 # map/link model saved files to checkpoints/NCFModel/cp/*
@@ -6,8 +8,8 @@ from src.models.RModel import RModel
 class NCFModel(RModel):
   def __init__(self):
     super().__init__('NCFModel')
-    self._productIds = []
-    self._customerIds = []
+    self._productIds: list = []
+    self._customerIds: list = []
     self.trainData = 'checkpoints/{}/modelData/test2m.csv'.format(self.modelName)
     self.loadTrainData()
 
@@ -27,10 +29,7 @@ class NCFModel(RModel):
   def productIds(self, ids:list):
       self._productIds = ids
 
-  def getPredictDataSet(self, customerId):
-    return super().getPredictDataSet(customerId)
-
-  def getPredictDataFrame(self, customerId):
+  def getPredictDataFrame(self, customerId) -> DataFrame:
     frame = pd.DataFrame({'PRODUCT_ID': self.productIds})
     frame['CUSTOMER_ID'] = customerId
     return frame
@@ -58,6 +57,6 @@ class NCFModel(RModel):
 
   def loadTrainData(self):
     #customer_id,normalized_customer_id,material,product_id,rating_type
-    trainData = pd.read_csv(self.trainData)
+    trainData = pd.read_csv(self.dataConnection.open_file(self.trainData))
     self.productIds = trainData.product_id.unique().tolist()
     self.customerIds = trainData.normalized_customer_id.unique().tolist()

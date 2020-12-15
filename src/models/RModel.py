@@ -1,13 +1,18 @@
+import json
 import sys, os
+from typing import Tuple
 
-import pandas as pd
+import smbclient
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from pandas import DataFrame
 from tensorflow.keras.utils import model_to_dot
 from sklearn.model_selection import train_test_split
+from tensorflow.python.data.ops.dataset_ops import DatasetV2
 from tensorflow.python.distribute.distribute_lib import Strategy
 from tensorflow.python.keras.models import Model
+
+from src.datasource.AAUDataStore import AAUDataStore
 
 
 class RModel:
@@ -29,45 +34,70 @@ class RModel:
     os.makedirs('checkpoints/{}'.format(self.modelName), exist_ok=True)
     os.makedirs('checkpoints/{}/modelData'.format(self.modelName), exist_ok=True)
 
-    self.numFactor = 32
-    self.epochs = 10
-    self.validationSteps = 20
-    self._model = None
+    self.numFactor: int = 32
+    self._epochs: int = 10
+    self._batchSize: int = 1024
+    self._validationSteps: int = 20
+    self._testSize: float = 0.2
+
+    self._model: Model = None
+
+    self._dataConnection = AAUDataStore().connection
 
   @property
-  def model(self):
+  def testSize(self) -> float:
+    return self._testSize
+
+  @testSize.setter
+  def testSize(self, value: float):
+    self._testSize = value
+
+  @property
+  def validationSteps(self) -> int:
+    return self._validationSteps
+
+  @validationSteps.setter
+  def validationSteps(self, value):
+    self._validationSteps = value
+
+  @property
+  def epochs(self) -> int:
+    return self._epochs
+
+  @epochs.setter
+  def epochs(self, value: int):
+    self._epochs = value
+
+  @property
+  def batchSize(self) -> int:
+    return self._batchSize
+
+  @batchSize.setter
+  def batchSize(self, value: int):
+    self._batchSize = value
+
+  @property
+  def dataConnection(self) -> smbclient:
+    return self._dataConnection
+
+  @dataConnection.setter
+  def dataConnection(self, value):
+    pass
+
+  @property
+  def model(self) -> Model:
     return self._model
 
   @model.setter
-  def model(self, value):
+  def model(self, value: Model):
     self._model = value
 
-  def buildModel(self, numUser, numItem, numFactor) -> Model:
+  def compileModel(self, distributedConfig, numUser: int, numItem: int, numFactor: int) -> Tuple[Model, Strategy]:
     print('placeholder')
-    return None
+    return None, None
 
   def bootstrapDataset(self, df, negRatio=3., batchSize=128, shuffle=True) -> tf.data.Dataset:
-    posDf = df[[self.CUSTOMER_ID, self.PRODUCT_ID]].copy()
-    negDf = df[[self.CUSTOMER_ID, self.PRODUCT_ID]].sample(frac=negRatio, replace=True).copy()
-    negDf.PRODUCT_ID = negDf.PRODUCT_ID.sample(frac=1.).values
-
-    posDf['label'] = 1.
-    negDf['label'] = 0.
-    mergeDf = pd.concat([posDf, negDf]).sample(frac=1.)
-
-    X = {
-      "user": mergeDf[self.CUSTOMER_ID].values,
-      "item": mergeDf[self.PRODUCT_ID].values
-    }
-    Y = mergeDf.label.values
-
-    ds = (tf.data.Dataset.from_tensor_slices((X, Y))
-          .batch(batchSize))
-
-    if shuffle:
-      ds = ds.shuffle(buffer_size=len(df))
-
-    return ds
+    return None
 
   def plot(self, history, metrics):
     fig, ax = plt.subplots(nrows=1, ncols=1)
@@ -84,27 +114,8 @@ class RModel:
     fig.savefig(self.trainResultPlotPath)
     plt.close(fig)
 
-  def train(self, path, rowLimit, metricDict, distributedConfig=None):
-    numItem, numUser, transactionDf = self.readData(path, rowLimit)
-    train, test = train_test_split(transactionDf, test_size=0.2)
-    products = test.PRODUCT_ID.unique().tolist()
-    users = test.CUSTOMER_ID.unique().tolist()
-    pd.DataFrame({self.PRODUCT_ID: products}).to_pickle(self.modelProducts)
-    pd.DataFrame({self.CUSTOMER_ID: users}).to_pickle(self.modelUsers)
-    sampleSize = len(train)
-    print(sampleSize, 'train examples')
-    print(len(test), 'test examples')
-
-    strategy = None
-    if distributedConfig is None:
-      batchSize = self.epochs
-      self.model = self.buildModel(numUser, numItem, self.numFactor)
-    else:
-      numWorkers = len(distributedConfig['cluster']['worker'])
-      batchSize = self.epochs * numWorkers
-      strategy = tf.distribute.experimental.MultiWorkerMirroredStrategy()
-      with strategy.scope():
-        self.model = self.buildModel(numUser, numItem, self.numFactor)
+  def train(self, path, rowLimit, metricDict:dict = {}, distributedConfig=None):
+    strategy, trainDataset, testDataset, trainSplit = self.prepareToTrain(distributedConfig, path, rowLimit)
 
     try:
       model_to_dot(self.model, show_shapes=True).write(path=self.modelStructurePath, prog='dot', format='png')
@@ -112,70 +123,51 @@ class RModel:
       print('Could not plot model in dot format:', sys.exc_info()[0])
     self.model.summary()
 
-    # train data set
-    trainDataset = self.bootstrapDataset(train, batchSize=batchSize)
-    # split validation dataset
-    testDataset = self.bootstrapDataset(test, batchSize=batchSize, shuffle=False)
-
     if distributedConfig is None:
       history = self.model.fit(trainDataset, validation_data=testDataset, epochs=self.epochs)
     else:
-      history = self.model.fit(trainDataset, validation_data=testDataset, epochs=self.epochs,
-                                steps_per_epoch=len(trainDataset) / self.epochs / numWorkers, validation_steps=self.validationSteps)
+      history = self.model.fit(trainDataset,
+                               validation_data=testDataset,
+                               epochs=self.epochs,
+                               steps_per_epoch=len(trainDataset) / self.epochs / self.getNumberOfWorkers(
+                                 distributedConfig),
+                               validation_steps=self.validationSteps)
 
     self.model.save(self.getModelSaveLocation(strategy))
 
     self.plot(history, metricDict)
 
     print("Evaluating trained model...")
-    _, val = train_test_split(train, test_size=0.2)
+    _, val = train_test_split(trainSplit, test_size=0.2)
     valDataset = self.bootstrapDataset(val, shuffle=False)
 
-    evaluatedMetric = list(self.model.evaluate(valDataset, steps=20))
+    evaluatedMetric = list(self.model.evaluate(valDataset, steps=self.validationSteps))
 
     self.clearSlaveTempDir(strategy)
     return {'result': 'completed', 'metrics': evaluatedMetric}
 
-  def readData(self, path, rowLimit) -> {int, int, DataFrame}:
-    df = pd.read_csv(path, nrows=rowLimit)
-    transactionDf = df.drop(['MATERIAL', 'QUANTITY'], axis=1)
-    numUser = transactionDf.CUSTOMER_ID.max() + 1
-    numItem = transactionDf.PRODUCT_ID.max() + 1
-    return numItem, numUser, transactionDf
+  def prepareToTrain(self, distributedConfig, path, rowLimit) -> Tuple[Strategy, DatasetV2, DatasetV2, list]:
+    return None
 
-  def getPredictDataSet(self, customerId):
+  def readData(self, path, rowLimit) -> {int, int, DataFrame}:
+    print('To be implemented on specific model')
+    return None
+
+  def getPredictDataFrame(self, customerId) -> DataFrame:
+    return None
+
+  def predictForUser(self, customerId, numberOfItem=5):
+    return None
+
+  def getPredictableUsers(self) -> list:
+    return []
+
+  def getPredictDataSet(self, customerId) -> DatasetV2:
     predictionDf = self.getPredictDataFrame(customerId)
     return self.bootstrapDataset(predictionDf, shuffle=False)
 
-  def getPredictDataFrame(self, customerId):
-    predictionDf = pd.read_pickle(self.modelProducts)
-    predictionDf[self.CUSTOMER_ID] = customerId
-    return predictionDf
-
   def restoreFromLatestCheckPoint(self):
     self.model = tf.keras.models.load_model(self.checkpointPath)
-
-  def predictForUser(self, customerId, numberOfItem=5):
-
-    predictDataSet = self.getPredictDataSet(customerId)
-    predictions = self.model.predict(predictDataSet)
-
-    i = 0
-    extractFeatures = {}
-    for features, label in predictDataSet.as_numpy_iterator():
-      users = features['user']
-      items = features['item']
-      j = 0
-      for u in users:
-        if u == customerId:
-          extractFeatures[str(items[j])] = str(predictions[i][0])
-        j = j + 1
-        i = i + 1
-
-    return sorted(extractFeatures.items(), key=lambda x: x[1], reverse=True)[:numberOfItem]
-
-  def getPredictableUsers(self):
-    return pd.read_pickle(self.modelUsers).CUSTOMER_ID.tolist()
 
   def getModelSaveLocation(self, strategy: Strategy) -> str:
     if strategy is None or self.isMaster(strategy.cluster_resolver.task_type, strategy.cluster_resolver.task_id):
@@ -202,3 +194,6 @@ class RModel:
 
   def readyToTrain(self):
     return True
+
+  def getNumberOfWorkers(self, distributedConfig) -> int:
+    return len(distributedConfig['cluster']['worker'])

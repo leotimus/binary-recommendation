@@ -13,8 +13,7 @@ from src.restful.oauth2.OauthModel import db, User, OAuth2Client
 class ApiApp:
 
   def __init__(self):
-    _app = Flask(__name__)
-    self._app = _app
+    self._app: Flask = Flask(__name__)
     self.app.config.from_json('../../config.json')
 
     oauthEndpoints = AuthenticationEndpoint().oauthEndpoints
@@ -38,10 +37,12 @@ class ApiApp:
 
       db.create_all()
 
-      admin = User(username='admin', password=hashlib.md5('12345'.encode()).hexdigest(), scope='manager')
+      admin = User(username=self.app.config.get('DEF_ADMIN'),
+                   password=hashlib.md5(self.app.config.get('DEF_ADMIN_PASS').encode()).hexdigest(),
+                   scope='manager')
       db.session.add(admin)
 
-      client_id = 'lkchCRIIOR3xi7qFJI6zPPEH'
+      client_id = self.app.config.get('DEV_CLIENT_ID')
       client_id_issued_at = int(time.time())
       adminClient = OAuth2Client(client_id=client_id, client_id_issued_at=client_id_issued_at, user_id=admin.id)
       client_metadata = {
@@ -53,7 +54,7 @@ class ApiApp:
         "response_types": 'code',
         "token_endpoint_auth_method": 'client_secret_basic'
       }
-      adminClient.client_secret = '8WUn6UXefjNVsNP6Q6zz3opeIgBh3wLzAO5Kx0ZUQWlXXV2d'
+      adminClient.client_secret = self.app.config.get('DEV_CLIENT_SECRET')
       adminClient.set_client_metadata(client_metadata)
       db.session.add(adminClient)
 

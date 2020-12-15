@@ -3,5 +3,9 @@
   "DEV_MODE": true,
   "OAUTH2_REFRESH_TOKEN_GENERATOR": true,
   "SQLALCHEMY_TRACK_MODIFICATIONS": false,
-  "SQLALCHEMY_DATABASE_URI": "sqlite:///../../data/oauth2/db.sqlite"
+  "SQLALCHEMY_DATABASE_URI": "sqlite:///../../data/oauth2/db.sqlite",
+  "DEF_ADMIN": "admin",
+  "DEF_ADMIN_PASS": "12345",
+  "DEV_CLIENT_ID": "lkchCRIIOR3xi7qFJI6zPPEH",
+  "DEV_CLIENT_SECRET": "8WUn6UXefjNVsNP6Q6zz3opeIgBh3wLzAO5Kx0ZUQWlXXV2d"
 }

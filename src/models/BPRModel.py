@@ -1,4 +1,5 @@
 from multiprocessing.pool import Pool
+from typing import Tuple
 
 from pandas import DataFrame
 from sklearn.model_selection import train_test_split
@@ -10,49 +11,42 @@ from tensorflow.keras.optimizers import Adam
 import tensorflow as tf
 import numpy as np
 import pandas as pd
+from tensorflow.python.distribute.distribute_lib import Strategy
 
 from src.models.RModel import RModel
 
 class BPRModel(RModel):
   def __init__(self):
     super().__init__('BPRModel')
-    self._trainDf: DataFrame
-    self._productIds: list()
-    self._results = list()
+    self._trainDf: DataFrame = None
+    self._productIds: list = []
+    self._results: list = []
 
   @property
-  def results(self):
+  def results(self) -> list:
     return self._results
 
   @results.setter
-  def results(self, value):
+  def results(self, value: list):
     self._results = value
 
   @property
-  def productIds(self):
+  def productIds(self) -> list:
     return self._productIds
 
   @productIds.setter
-  def productIds(self, value):
+  def productIds(self, value: list):
     self._productIds = value
 
   @property
-  def trainDf(self):
+  def trainDf(self) -> DataFrame:
     return self._trainDf
 
   @trainDf.setter
-  def trainDf(self, value):
+  def trainDf(self, value: DataFrame):
     self._trainDf = value
 
-  def buildModel(self, numUser, numItem, numFactor):
-    """
-        Build a model for Bayesian personalized ranking
-
-        :param num_users: a number of the unique users
-        :param num_items: a number of the unique products
-        :param latent_dim: vector length for the latent representation
-        :return: Model
-        """
+  def compileModel(self, distributedConfig, numUser:int, numItem:int, numFactor:int) -> Tuple[Model, Strategy]:
     userInput = Input((1,), name='customerId_input')
     positiveItemInput = Input((1,), name='pProduct_input')
     negativeItemInput = Input((1,), name='nProduct_input')
@@ -77,10 +71,10 @@ class BPRModel(RModel):
 
     # self.model.compile(Adam(1e-3), loss='mean_squared_error', metrics=RModel.METRICS)
 
-    return self.model
+    return self.model, None
 
-  def train(self, path, rowLimit, metricDict, distributedConfig=None):
-    batchSize = 64
+  def train(self, path, rowLimit, metricDict:dict = None, distributedConfig=None):
+    self.batchSize = 64
 
     numItem, numUser, transactionDf = self.readData(path, rowLimit)
 
@@ -89,7 +83,7 @@ class BPRModel(RModel):
     # transactionDf.PRODUCT_ID = transactionDf.PRODUCT_ID.astype('category')
     # transactionDf.PRODUCT_ID = transactionDf.PRODUCT_ID.cat.codes
 
-    self.trainDf, test = train_test_split(transactionDf, test_size=0.2)
+    self.trainDf, test = train_test_split(transactionDf, test_size=self.testSize)
 
     dfTriplets = pd.DataFrame(columns=['CUSTOMER_ID', 'pPRODUCT_ID', 'nPRODUCT_ID'])
 
@@ -110,9 +104,9 @@ class BPRModel(RModel):
     }
 
     # self.model = self.buildModel(numUser, numItem, self.numFactor)
-    self.model = self.buildModel(max(customerIds) + 1, max(self.productIds) + 1, self.numFactor)
+    self.model = self.compileModel(max(customerIds) + 1, max(self.productIds) + 1, self.numFactor)
 
-    self.model.fit(X, tf.ones(dfTriplets.shape[0]), batch_size=batchSize, epochs=self.epochs)
+    self.model.fit(X, tf.ones(dfTriplets.shape[0]), batch_size=self.batchSize, epochs=self.epochs)
 
   def extractPositivesNegatives(self, customerId) -> list:
     entries = []

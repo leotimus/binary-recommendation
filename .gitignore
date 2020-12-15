@@ -10,3 +10,4 @@ src/restful/oauth2/__pycache__
 db.sqlite
 test/__pycache__
 src/datasource/__pycache__
+c.json

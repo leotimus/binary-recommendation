@@ -3,7 +3,6 @@ import os
 import time
 
 from flask import Flask
-from flask_oauthlib.provider import OAuth2Provider
 
 from src.restful.RecommendationEndpoint import RecommendationEndpoint
 from src.restful.oauth2.AuthenticationEndpoint import AuthenticationEndpoint

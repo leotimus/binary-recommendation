@@ -8,6 +8,7 @@ from authlib.integrations.sqla_oauth2 import (
 
 db = SQLAlchemy()
 
+
 class User(db.Model):
   id = db.Column(db.Integer, primary_key=True)
   username = db.Column(db.String(40), unique=True)
@@ -20,7 +21,7 @@ class User(db.Model):
   def get_user_id(self):
     return self.id
 
-  def validate(self, password:str):
+  def validate(self, password: str):
     return hashlib.md5(password.encode()).hexdigest() == self.password
 
   def getPassword(self):

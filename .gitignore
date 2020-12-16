@@ -11,3 +11,5 @@ db.sqlite
 test/__pycache__
 src/datasource/__pycache__
 c.json
+logs
+src/logger/__pycache__

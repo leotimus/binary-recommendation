@@ -10,7 +10,7 @@ class NCFModel(RModel):
     super().__init__('NCFModel')
     self._productIds: list = []
     self._customerIds: list = []
-    self.trainData = 'checkpoints/{}/modelData/test2m.csv'.format(self.modelName)
+    self.trainData = r'\\cs.aau.dk\Fileshares\IT703e20\(NEW)CleanDatasets\NCF\2m(OG)\test.csv'
     self.loadTrainData()
 
   @property
@@ -35,6 +35,8 @@ class NCFModel(RModel):
     return frame
 
   def restoreFromLatestCheckPoint(self):
+    # TODO restore local or remotely?
+    # self.dataStore.copyfile(r'\\cs.aau.dk\Fileshares\IT703e20\NCF_savedModels\2m', self.checkpointPath)
     super().restoreFromLatestCheckPoint()
 
   def predictForUser(self, customerId, numberOfItem=5):
@@ -57,6 +59,6 @@ class NCFModel(RModel):
 
   def loadTrainData(self):
     #customer_id,normalized_customer_id,material,product_id,rating_type
-    trainData = pd.read_csv(self.dataConnection.open_file(self.trainData))
+    trainData = pd.read_csv(self.dataStore.openFile(self.trainData))
     self.productIds = trainData.product_id.unique().tolist()
     self.customerIds = trainData.normalized_customer_id.unique().tolist()

@@ -19,7 +19,7 @@ class NeuMFModel(RModel):
     super().__init__('NeuMFModel')
 
   def readData(self, path, rowLimit) -> {int, int, DataFrame}:
-    file = self.dataConnection.open_file(path=path, mode='r')
+    file = self.dataStore.openFile(path=path, mode='r')
     df = pd.read_csv(file, nrows=rowLimit)
     transactionDf = df.drop(['MATERIAL', 'QUANTITY'], axis=1)
     numUser = transactionDf.CUSTOMER_ID.max() + 1

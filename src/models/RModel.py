@@ -2,7 +2,6 @@ import json
 import sys, os
 from typing import Tuple
 
-import smbclient
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from pandas import DataFrame
@@ -12,7 +11,7 @@ from tensorflow.python.data.ops.dataset_ops import DatasetV2
 from tensorflow.python.distribute.distribute_lib import Strategy
 from tensorflow.python.keras.models import Model
 
-from src.datasource.AAUDataStore import AAUDataStore
+from src.datasource.DataStore import DataStore
 
 
 class RModel:
@@ -42,7 +41,7 @@ class RModel:
 
     self._model: Model = None
 
-    self._dataConnection = AAUDataStore().connection
+    self._dataStore = DataStore()
 
   @property
   def testSize(self) -> float:
@@ -77,11 +76,11 @@ class RModel:
     self._batchSize = value
 
   @property
-  def dataConnection(self) -> smbclient:
-    return self._dataConnection
+  def dataStore(self) -> DataStore:
+    return self._dataStore
 
-  @dataConnection.setter
-  def dataConnection(self, value):
+  @dataStore.setter
+  def dataStore(self, value):
     pass
 
   @property

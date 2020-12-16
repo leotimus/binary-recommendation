@@ -23,7 +23,7 @@ VERBOSE = True
 PRINT_EVERY = 1351 # Get more random-looking numbers
 
 GRUNDFOS = True
-EVALUATE = True
+EVALUATE = False
 
 BENCHMARK_FILE_NAME = "../benchmarks/svd-benchmark-{0}.csv"
 
@@ -46,6 +46,8 @@ else:
     #FILE_PATH = r"(NEW)CleanDatasets/NCF/500k/ds2_500k_timeDistributed_{0}.csv"
     #FILE_PATH = r"(NEW)CleanDatasets/NCF/1m/ds2_1m_timeDistributed_{0}.csv"
     #FILE_PATH = r"(NEW)CleanDatasets/NCF/2m(OG)/ds2_OG(2m)_timeDistributed_{0}.csv"
+    FILE_PATH = r"(NEW)CleanDatasets/NCF/5m/ds2_5m_timeDistributed_{0}.csv"
+    #FILE_PATH = r"(NEW)CleanDatasets/NCF/10m/ds2_10m_timeDistributed_{0}.csv"
     NUMBER_OF_FILES = 5
     NUMBER_OF_CHUNKS_TO_EAT = 5
     USER_ID_COLUMN = "CUSTOMER_ID"
@@ -550,9 +552,11 @@ if __name__ == "__main__":
         test_set_results.append(result["test_set"])
         train_set_results.append(result["train_set"])
 
-        if not dataset.next_cross_validation_distribution():
-            break
+        #if not dataset.next_cross_validation_distribution():
+        #    break
+        break
     
+
     test_set_result = topk.getAverage(test_set_results)
     train_set_result = topk.getAverage(train_set_results)
     result = {"test_set":test_set_result, "train_set": train_set_result}

@@ -1,4 +1,3 @@
-import json
 import sys, os
 from typing import Tuple
 
@@ -91,9 +90,9 @@ class RModel:
   def model(self, value: Model):
     self._model = value
 
-  def compileModel(self, distributedConfig, numUser: int, numItem: int, numFactor: int) -> Tuple[Model, Strategy]:
+  def compileModel(self, distributedConfig, numUser: int, numItem: int, numFactor: int) -> Model:
     print('placeholder')
-    return None, None
+    return None
 
   def bootstrapDataset(self, df, negRatio=3., batchSize=128, shuffle=True) -> tf.data.Dataset:
     return None
@@ -114,7 +113,12 @@ class RModel:
     plt.close(fig)
 
   def train(self, path, rowLimit, metricDict:dict = {}, distributedConfig=None):
-    strategy, trainDataset, testDataset, trainSplit = self.prepareToTrain(distributedConfig, path, rowLimit)
+    if distributedConfig is None:
+      strategy, trainDataset, testDataset, trainSplit = self.prepareToTrain(distributedConfig, path, rowLimit)
+    else:
+      strategy = tf.distribute.experimental.MultiWorkerMirroredStrategy()
+      with strategy.scope():
+        strategy, trainDataset, testDataset, trainSplit = self.prepareToTrain(distributedConfig, path, rowLimit)
 
     try:
       model_to_dot(self.model, show_shapes=True).write(path=self.modelStructurePath, prog='dot', format='png')

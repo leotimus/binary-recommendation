@@ -50,7 +50,7 @@ class NeuMFModel(RModel):
     self.model, strategy = self.compileModel(distributedConfig, numUser, numItem, self.numFactor)
     return strategy, trainDataset, testDataset, trainSplit
 
-  def compileModel(self, distributedConfig, numUser:int, numItem:int, numFactor:int) -> Tuple[Model, Strategy]:
+  def compileModel(self, distributedConfig, numUser:int, numItem:int, numFactor:int) -> Model:
     userId = Input(shape=(), name='user')
     itemId = Input(shape=(), name='item')
 
@@ -83,7 +83,7 @@ class NeuMFModel(RModel):
     output = Dense(1, activation='sigmoid')(combine)
 
     inputs = [userId, itemId]
-    strategy: Strategy = None
+
     if distributedConfig is None:
       self.model = Model(inputs, output, name=self.modelName)
       self.model.compile(Adam(1e-3),
@@ -92,14 +92,12 @@ class NeuMFModel(RModel):
     else:
       numWorkers = self.getNumberOfWorkers(distributedConfig)
       self.batchSize = self.epochs * numWorkers
-      strategy = tf.distribute.experimental.MultiWorkerMirroredStrategy()
-      with strategy.scope():
-        self.model = Model(inputs, output, name=self.modelName)
-        self.model.compile(Adam(1e-3),
+      self.model = Model(inputs, output, name=self.modelName)
+      self.model.compile(Adam(1e-3),
                            loss='mean_squared_error',
                            metrics=RModel.METRICS)
 
-    return self.model, strategy
+    return self.model
 
   def bootstrapDataset(self, df, negRatio=3., batchSize=128, shuffle=True) -> tf.data.Dataset:
     posDf = df[[self.CUSTOMER_ID, self.PRODUCT_ID]].copy()

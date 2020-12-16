@@ -2,6 +2,7 @@ import os, sys
 import pandas as pd
 import tensorflow as tf
 import smbclient as smbc
+from getpass import getpass
 
 from src.models.TwoTower import TwoTowerModel
 
@@ -94,8 +95,8 @@ def crossValidation(filenames, k, learningRate, optimiser, loss, epoch, embNum, 
     os.mkdir(bname)
   # Load the files for cross-validation.
   dataSets = []
-  username = ""  # FIXME
-  psw = ""  # FIXME
+  username = input("Username: ")  # If it is not possible to input them this way, those information must be passed to the function as parameters.
+  psw = getpass()  # 
   print("Loading files", flush=True)
   for filename in filenames:
     dataSets.append(gfData(filename, username, psw))

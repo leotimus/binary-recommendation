@@ -114,11 +114,11 @@ class RModel:
 
   def train(self, path, rowLimit, metricDict:dict = {}, distributedConfig=None):
     if distributedConfig is None:
-      strategy, trainDataset, testDataset, trainSplit = self.prepareToTrain(distributedConfig, path, rowLimit)
+      trainDataset, testDataset, trainSplit = self.prepareToTrain(distributedConfig, path, rowLimit)
     else:
       strategy = tf.distribute.experimental.MultiWorkerMirroredStrategy()
       with strategy.scope():
-        strategy, trainDataset, testDataset, trainSplit = self.prepareToTrain(distributedConfig, path, rowLimit)
+        trainDataset, testDataset, trainSplit = self.prepareToTrain(distributedConfig, path, rowLimit)
 
     try:
       model_to_dot(self.model, show_shapes=True).write(path=self.modelStructurePath, prog='dot', format='png')
@@ -149,7 +149,7 @@ class RModel:
     self.clearSlaveTempDir(strategy)
     return {'result': 'completed', 'metrics': evaluatedMetric}
 
-  def prepareToTrain(self, distributedConfig, path, rowLimit) -> Tuple[Strategy, DatasetV2, DatasetV2, list]:
+  def prepareToTrain(self, distributedConfig, path, rowLimit) -> Tuple[DatasetV2, DatasetV2, list]:
     return None
 
   def readData(self, path, rowLimit) -> {int, int, DataFrame}:

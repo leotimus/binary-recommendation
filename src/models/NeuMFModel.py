@@ -26,7 +26,7 @@ class NeuMFModel(RModel):
     numItem = transactionDf.PRODUCT_ID.max() + 1
     return numItem, numUser, transactionDf
 
-  def prepareToTrain(self, distributedConfig, path, rowLimit) -> Tuple[Strategy, DatasetV2, DatasetV2, list]:
+  def prepareToTrain(self, distributedConfig, path, rowLimit) -> Tuple[DatasetV2, DatasetV2, list]:
     numItem, numUser, transactionDf = self.readData(path, rowLimit)
 
     trainSplit, testSplit = train_test_split(transactionDf, test_size=self.testSize)
@@ -47,8 +47,8 @@ class NeuMFModel(RModel):
       trainDataset = self.bootstrapDataset(trainSplit, batchSize=self.batchSize)
       testDataset = self.bootstrapDataset(testSplit, batchSize=self.batchSize, shuffle=False)
 
-    self.model, strategy = self.compileModel(distributedConfig, numUser, numItem, self.numFactor)
-    return strategy, trainDataset, testDataset, trainSplit
+    self.model = self.compileModel(distributedConfig, numUser, numItem, self.numFactor)
+    return trainDataset, testDataset, trainSplit
 
   def compileModel(self, distributedConfig, numUser:int, numItem:int, numFactor:int) -> Model:
     userId = Input(shape=(), name='user')

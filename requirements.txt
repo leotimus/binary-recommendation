@@ -9,6 +9,7 @@ IPython>=7.16.1
 pydot>=1.4.1
 graphviz>=0.14.2
 smbprotocol>=1.2.0
+tensorflow_recommenders>=0.3.0
 
 # API
 flask>=1.1.2

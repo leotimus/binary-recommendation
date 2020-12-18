@@ -439,7 +439,7 @@ def do_topk(user_matrix, item_matrix, test_idset, train_idset, user_ids, item_id
     test_set_result = topk.topKMetrics(predictions, test_idset, actual_user_ids, actual_item_ids)
     train_set_result = topk.topKMetrics(predictions, train_idset, actual_user_ids, actual_item_ids)
 
-    return {"test_set" : test_set_result, "train_set": train_set_result}
+    return {"all_data" : test_set_result, "train_set": train_set_result}
 
 def train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bias, bmThread):
     number_of_users = uid_max + 1
@@ -482,7 +482,7 @@ def train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bia
         print("-"*16)
         print("Evaluating...", flush=True)
         test_idset = get_idset([test_dataframe]) # Set of (user, item) pairs
-        train_idset = get_idset(dataset)
+        train_idset = get_idset(list(dataset) + [test_dataframe])
         print("Calculating MSE on test set", flush=True)
         test_set_err = mean_square_error([test_dataframe], user_matrix, item_matrix, user_bias_vector, item_bias_vector, global_bias, user_ids, item_ids)
 
@@ -547,7 +547,7 @@ if __name__ == "__main__":
         x_val+=1
 
         result = train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bias, bmThread)
-        test_set_results.append(result["test_set"])
+        test_set_results.append(result["all_data"])
         train_set_results.append(result["train_set"])
 
         if not dataset.next_cross_validation_distribution():
@@ -555,7 +555,7 @@ if __name__ == "__main__":
     
     test_set_result = topk.getAverage(test_set_results)
     train_set_result = topk.getAverage(train_set_results)
-    result = {"test_set":test_set_result, "train_set": train_set_result}
+    result = {"all_data":test_set_result, "train_set": train_set_result}
 
     print("="*16)
     print(f"Using config: {get_config()}")

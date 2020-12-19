@@ -11,21 +11,21 @@ from src.AAUfilename import getAAUfilename
 from getpass import getpass
 from src.benchmarkLogger import benchThread
 
-EPOCHS = 25
-LEARNING_RATE = 0.07
-EMBEDDING_REGULARIZATION = 0.1
+EPOCHS = 1
+LEARNING_RATE = 0.01
+EMBEDDING_REGULARIZATION = 0
 BIAS_REGULARIZATION = 0.01
 NUMBER_OF_EMBEDDINGS = 50
 
 TOPK_BATCH_SIZE = 5000
-EPOCH_ERROR_CALCULATION_FREQUENCY = 100
+EPOCH_ERROR_CALCULATION_FREQUENCY = 1
 VERBOSE = True
 PRINT_EVERY = 1351 # Get more random-looking numbers
 
 GRUNDFOS = True
 EVALUATE = True
 
-BENCHMARK_FILE_NAME = None
+BENCHMARK_FILE_NAME = "crash-simulation-{0}.csv"
 
 # The data is expected in chunks, either in separate files or in a single
 # file that pandas will then split to the size specified. 
@@ -530,28 +530,34 @@ if __name__ == "__main__":
     else:
         bmThread = None
 
-    print("-"*16)
-    print("Digesting....", flush=True)
-    user_ids, item_ids, uid_max, iid_max, global_bias = digest(dataset)
+    try:
+        print("-"*16)
+        print("Digesting....", flush=True)
+        user_ids, item_ids, uid_max, iid_max, global_bias = digest(dataset)
 
-    dataset.next_cross_validation_distribution() # Use the first chunk as the test set
-    
-    test_set_results = []
-    train_set_results = []
+        dataset.next_cross_validation_distribution() # Use the first chunk as the test set
+        
+        test_set_results = []
+        train_set_results = []
 
-    x_val=1
-    while True:
-        print("="*16)
-        print(f"Cross validation {x_val} of 5")
-        print("="*16)
-        x_val+=1
+        x_val=1
+        while True:
+            print("="*16)
+            print(f"Cross validation {x_val} of 5")
+            print("="*16)
+            x_val+=1
 
-        result = train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bias, bmThread)
-        test_set_results.append(result["all_data"])
-        train_set_results.append(result["train_set"])
+            result = train_and_evaluate(dataset, user_ids, item_ids, uid_max, iid_max, global_bias, bmThread)
+            test_set_results.append(result["all_data"])
+            train_set_results.append(result["train_set"])
 
-        if not dataset.next_cross_validation_distribution():
-            break
+            if not dataset.next_cross_validation_distribution():
+                break
+    except Exception as e:
+        bmThread.active = 0
+        bmThread.join()
+        raise e
+
     
     test_set_result = topk.getAverage(test_set_results)
     train_set_result = topk.getAverage(train_set_results)
